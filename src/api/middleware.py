@@ -36,7 +36,10 @@ from src.config import get_settings
 logger = structlog.get_logger("qmr.middleware")
 
 # Paths that do not require an API key.
-_PUBLIC_PATHS: frozenset[str] = frozenset({"/health", "/docs", "/redoc", "/openapi.json"})
+_PUBLIC_PATHS: frozenset[str] = frozenset({"/health", "/docs", "/redoc", "/openapi.json", "/api/v1/waitlist"})
+
+# Path prefixes that do not require an API key (static assets, etc.)
+_PUBLIC_PREFIXES: tuple[str, ...] = ("/static/", "/css/", "/js/", "/img/")
 
 # ---------------------------------------------------------------------------
 # 1. Security headers
@@ -107,8 +110,14 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        # Let public / preflight requests through.
-        if request.url.path in _PUBLIC_PATHS or request.method == "OPTIONS":
+        # Let public / preflight / static asset requests through.
+        path = request.url.path
+        if (
+            path in _PUBLIC_PATHS
+            or path.startswith(_PUBLIC_PREFIXES)
+            or request.method == "OPTIONS"
+            or not path.startswith("/api/")
+        ):
             return await call_next(request)
 
         # --- Authentication ------------------------------------------------
