@@ -1,0 +1,36 @@
+# ============================================================
+# Quantum MCP Relayer — Production Overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+# ============================================================
+
+services:
+  api:
+    restart: always
+    environment:
+      ENVIRONMENT: production
+      LOG_LEVEL: warning
+      PYTHONOPTIMIZE: "2"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 2G
+        reservations:
+          cpus: "1.0"
+          memory: 512M
+
+  redis:
+    # No port exposure in production — only reachable from the api container
+    ports: []
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000 --save 300 100
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"

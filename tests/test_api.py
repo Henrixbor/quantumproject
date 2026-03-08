@@ -2,14 +2,27 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.app import app
+from src.api.auth import Tier, key_store
 
 client = TestClient(app)
+
+# Generate a test API key
+_test_key = key_store.generate_key(owner="test", tier=Tier.free)
+AUTH = {"X-API-Key": _test_key}
 
 
 def test_health():
     resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
+
+
+def test_unauthenticated_returns_401():
+    resp = client.post(
+        "/api/v1/portfolio/optimize",
+        json={"assets": [{"symbol": "BTC"}, {"symbol": "ETH"}]},
+    )
+    assert resp.status_code == 401
 
 
 def test_portfolio_endpoint():
@@ -19,6 +32,7 @@ def test_portfolio_endpoint():
             "assets": [{"symbol": "BTC"}, {"symbol": "ETH"}],
             "risk_tolerance": 0.5,
         },
+        headers=AUTH,
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -36,6 +50,7 @@ def test_route_endpoint():
                 {"name": "C", "lat": 60.45, "lon": 22.27},
             ]
         },
+        headers=AUTH,
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -52,6 +67,7 @@ def test_schedule_endpoint():
                 {"name": "Bob", "available_slots": ["Mon 10:00-12:00"]},
             ]
         },
+        headers=AUTH,
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -63,5 +79,6 @@ def test_invalid_portfolio():
     resp = client.post(
         "/api/v1/portfolio/optimize",
         json={"assets": [{"symbol": "BTC"}]},  # min 2
+        headers=AUTH,
     )
     assert resp.status_code == 422
