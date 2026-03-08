@@ -21,22 +21,32 @@ CORS is configured in this module's ``attach_middleware`` helper so that
 from __future__ import annotations
 
 import time
-from typing import Callable
-
 import structlog
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
-from src.api.auth import key_store
+import jwt as pyjwt
+
+from src.api.auth import Tier, key_store
 from src.api.rate_limit import limiter
 from src.config import get_settings
 
 logger = structlog.get_logger("qmr.middleware")
 
 # Paths that do not require an API key.
-_PUBLIC_PATHS: frozenset[str] = frozenset({"/health", "/docs", "/redoc", "/openapi.json", "/api/v1/waitlist"})
+_PUBLIC_PATHS: frozenset[str] = frozenset({
+    "/health", "/docs", "/redoc", "/openapi.json",
+    "/api/v1/waitlist",
+    "/api/v1/auth/signup",
+    "/api/v1/auth/login",
+    "/api/v1/auth/me",
+    "/api/v1/auth/regenerate-key",
+    "/api/v1/billing/webhook",
+    "/api/v1/billing/create-checkout",
+    "/api/v1/billing/portal",
+})
 
 # Path prefixes that do not require an API key (static assets, etc.)
 _PUBLIC_PREFIXES: tuple[str, ...] = ("/static/", "/css/", "/js/", "/img/")
@@ -121,23 +131,63 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # --- Authentication ------------------------------------------------
+        # Accept either X-API-Key or Authorization: Bearer <jwt>
         api_key = request.headers.get("X-API-Key")
-        if not api_key:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Missing X-API-Key header."},
-            )
+        auth_header = request.headers.get("Authorization", "")
+        record = None
+        rate_key: str | None = None  # identifier for rate-limit bucket
 
-        record = key_store.validate_key(api_key)
-        if record is None:
-            logger.warning("auth_failure", path=request.url.path)
+        if api_key:
+            record = key_store.validate_key(api_key)
+            if record is None:
+                logger.warning("auth_failure", path=request.url.path)
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid API key."},
+                )
+            rate_key = record.key_hash
+        elif auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+            settings = get_settings()
+            try:
+                payload = pyjwt.decode(
+                    token, settings.jwt_secret, algorithms=["HS256"]
+                )
+                user_id: str = payload["sub"]
+            except (pyjwt.ExpiredSignatureError, pyjwt.InvalidTokenError):
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid or expired JWT token."},
+                )
+            # Resolve user → API key record so we can rate-limit by user
+            from src.models.user import user_store
+
+            user = user_store.get_by_id(user_id)
+            if user is None:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "User not found."},
+                )
+            record = key_store._records.get(user.api_key_hash)
+            if record is None:
+                # Fallback: build a synthetic record for rate limiting
+                from src.api.auth import APIKeyRecord
+                record = APIKeyRecord(
+                    key_hash=user.api_key_hash,
+                    tier=user.tier,
+                    owner=user.id,
+                )
+            rate_key = user.api_key_hash
+            # Track usage per user
+            user_store.increment_usage(user.id)
+        else:
             return JSONResponse(
                 status_code=401,
-                content={"detail": "Invalid API key."},
+                content={"detail": "Missing X-API-Key header or Authorization Bearer token."},
             )
 
         # --- Rate limiting -------------------------------------------------
-        result = limiter.check(record.key_hash, record.tier)
+        result = limiter.check(rate_key, record.tier)
         if not result.allowed:
             retry_after = max(1, int(result.reset_at - time.time()))
             logger.warning(

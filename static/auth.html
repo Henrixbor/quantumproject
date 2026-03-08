@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Sign up or log in to Quantum MCP Relayer" />
+  <meta name="theme-color" content="#7c3aed" />
+  <title>Sign Up / Log In — Quantum MCP Relayer</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+          colors: {
+            quantum: { dark: '#0b0d17', surface: '#111827', border: '#374151' }
+          }
+        }
+      }
+    };
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/custom.css" />
+
+  <style>
+    .auth-card {
+      background: var(--q-surface);
+      border: 1px solid var(--q-border);
+      border-radius: 1rem;
+      max-width: 440px;
+      width: 100%;
+    }
+    .auth-input {
+      background: var(--q-dark);
+      border: 1px solid var(--q-border);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      color: var(--q-text);
+      font-size: 0.9375rem;
+      width: 100%;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .auth-input:focus {
+      outline: none;
+      border-color: var(--q-violet);
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+    }
+    .auth-input::placeholder { color: var(--q-text-muted); }
+    .auth-tab {
+      flex: 1;
+      padding: 0.75rem;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      color: var(--q-text-muted);
+      background: transparent;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .auth-tab.active {
+      color: var(--q-violet);
+      border-bottom-color: var(--q-violet);
+    }
+    .auth-tab:hover { color: var(--q-text); }
+    .field-error {
+      color: #f87171;
+      font-size: 0.8125rem;
+      margin-top: 0.25rem;
+      min-height: 1.25rem;
+    }
+    .api-key-reveal {
+      background: #0d1117;
+      border: 2px solid #f59e0b;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+    }
+    .api-key-value {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--q-dark);
+      border: 1px solid var(--q-border);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      color: #34d399;
+      font-size: 0.875rem;
+      word-break: break-all;
+      user-select: all;
+    }
+  </style>
+</head>
+
+<body class="antialiased min-h-screen flex flex-col">
+  <!-- Nav -->
+  <nav class="nav-blur fixed top-0 inset-x-0 z-50" aria-label="Main navigation">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+      <a href="/" class="flex items-center gap-2 text-white font-bold text-lg" aria-label="Quantum MCP Relayer home">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <circle cx="14" cy="14" r="12" stroke="url(#lgA)" stroke-width="2"/>
+          <circle cx="14" cy="14" r="4" fill="url(#lgA)"/>
+          <circle cx="14" cy="6" r="2" fill="#8b5cf6"/>
+          <circle cx="21" cy="18" r="2" fill="#06b6d4"/>
+          <circle cx="7" cy="18" r="2" fill="#ec4899"/>
+          <defs><linearGradient id="lgA" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#8b5cf6"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
+        </svg>
+        <span>Quantum MCP</span>
+      </a>
+      <a href="/" class="text-sm text-gray-400 hover:text-white transition-colors">Back to Home</a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="flex-1 flex items-center justify-center px-4 pt-24 pb-12">
+    <!-- Auth Card -->
+    <div id="auth-card" class="auth-card">
+      <!-- Tabs -->
+      <div class="flex border-b border-gray-700/60">
+        <button id="tab-signup" class="auth-tab active" type="button" aria-label="Switch to sign up">Sign Up</button>
+        <button id="tab-login" class="auth-tab" type="button" aria-label="Switch to log in">Log In</button>
+      </div>
+
+      <!-- Sign Up Form -->
+      <form id="signup-form" class="p-6 sm:p-8 space-y-5">
+        <div>
+          <h2 class="text-2xl font-bold mb-1">Create your account</h2>
+          <p class="text-gray-400 text-sm">Start optimizing with quantum computing in minutes.</p>
+        </div>
+
+        <div>
+          <label for="signup-email" class="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
+          <input id="signup-email" type="email" class="auth-input" placeholder="you@company.com" autocomplete="email" required />
+          <div id="signup-email-error" class="field-error" aria-live="polite"></div>
+        </div>
+
+        <div>
+          <label for="signup-password" class="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
+          <input id="signup-password" type="password" class="auth-input" placeholder="Min. 8 characters" autocomplete="new-password" required minlength="8" />
+          <div id="signup-password-error" class="field-error" aria-live="polite"></div>
+        </div>
+
+        <div>
+          <label for="signup-confirm" class="block text-sm font-medium text-gray-300 mb-1.5">Confirm Password</label>
+          <input id="signup-confirm" type="password" class="auth-input" placeholder="Repeat your password" autocomplete="new-password" required />
+          <div id="signup-confirm-error" class="field-error" aria-live="polite"></div>
+        </div>
+
+        <div id="signup-server-error" class="field-error text-center" aria-live="polite"></div>
+
+        <button id="signup-btn" type="submit" class="w-full py-3 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          Create Account
+        </button>
+
+        <p class="text-center text-sm text-gray-500">
+          Already have an account? <button type="button" id="switch-to-login" class="text-violet-400 hover:text-violet-300 font-medium">Log in</button>
+        </p>
+      </form>
+
+      <!-- Login Form -->
+      <form id="login-form" class="p-6 sm:p-8 space-y-5" style="display: none;">
+        <div>
+          <h2 class="text-2xl font-bold mb-1">Welcome back</h2>
+          <p class="text-gray-400 text-sm">Log in to your Quantum MCP dashboard.</p>
+        </div>
+
+        <div>
+          <label for="login-email" class="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
+          <input id="login-email" type="email" class="auth-input" placeholder="you@company.com" autocomplete="email" required />
+          <div id="login-email-error" class="field-error" aria-live="polite"></div>
+        </div>
+
+        <div>
+          <label for="login-password" class="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
+          <input id="login-password" type="password" class="auth-input" placeholder="Your password" autocomplete="current-password" required />
+          <div id="login-password-error" class="field-error" aria-live="polite"></div>
+        </div>
+
+        <div id="login-server-error" class="field-error text-center" aria-live="polite"></div>
+
+        <button id="login-btn" type="submit" class="w-full py-3 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          Log In
+        </button>
+
+        <p class="text-center text-sm text-gray-500">
+          Don't have an account? <button type="button" id="switch-to-signup" class="text-violet-400 hover:text-violet-300 font-medium">Sign up</button>
+        </p>
+      </form>
+    </div>
+
+    <!-- API Key Reveal (shown after signup) -->
+    <div id="api-key-modal" class="auth-card" style="display: none;">
+      <div class="p-6 sm:p-8 space-y-6">
+        <div class="api-key-reveal">
+          <div class="flex items-center gap-2 mb-3">
+            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+            <h3 class="text-lg font-bold text-amber-400">Save Your API Key</h3>
+          </div>
+          <p class="text-sm text-gray-300 mb-4">
+            Copy your API key now. <strong class="text-amber-300">You will not see it again.</strong> Store it securely.
+          </p>
+          <div id="api-key-display" class="api-key-value mb-3" role="textbox" aria-label="Your API key" tabindex="0">
+          </div>
+          <button id="copy-api-key" type="button" class="w-full py-2.5 rounded-lg border border-emerald-500/40 text-emerald-400 font-medium hover:bg-emerald-500/10 transition-colors flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg>
+            Copy API Key
+          </button>
+        </div>
+
+        <button id="go-to-dashboard" type="button" class="w-full py-3 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-500 transition-colors">
+          Go to Dashboard
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      // Guard: redirect logged-in users to dashboard
+      Auth.guardAuth();
+
+      var tabSignup = document.getElementById('tab-signup');
+      var tabLogin = document.getElementById('tab-login');
+      var signupForm = document.getElementById('signup-form');
+      var loginForm = document.getElementById('login-form');
+      var authCard = document.getElementById('auth-card');
+      var apiKeyModal = document.getElementById('api-key-modal');
+
+      // Tab switching
+      function showSignup() {
+        tabSignup.classList.add('active');
+        tabLogin.classList.remove('active');
+        signupForm.style.display = '';
+        loginForm.style.display = 'none';
+        clearErrors();
+      }
+
+      function showLogin() {
+        tabLogin.classList.add('active');
+        tabSignup.classList.remove('active');
+        loginForm.style.display = '';
+        signupForm.style.display = 'none';
+        clearErrors();
+      }
+
+      tabSignup.addEventListener('click', showSignup);
+      tabLogin.addEventListener('click', showLogin);
+      document.getElementById('switch-to-login').addEventListener('click', showLogin);
+      document.getElementById('switch-to-signup').addEventListener('click', showSignup);
+
+      function clearErrors() {
+        document.querySelectorAll('.field-error').forEach(function (el) { el.textContent = ''; });
+      }
+
+      // Validation helpers
+      function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      }
+
+      // Sign Up
+      signupForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        clearErrors();
+
+        var email = document.getElementById('signup-email').value.trim();
+        var password = document.getElementById('signup-password').value;
+        var confirm = document.getElementById('signup-confirm').value;
+        var valid = true;
+
+        if (!email || !isValidEmail(email)) {
+          document.getElementById('signup-email-error').textContent = 'Please enter a valid email address.';
+          valid = false;
+        }
+        if (password.length < 8) {
+          document.getElementById('signup-password-error').textContent = 'Password must be at least 8 characters.';
+          valid = false;
+        }
+        if (password !== confirm) {
+          document.getElementById('signup-confirm-error').textContent = 'Passwords do not match.';
+          valid = false;
+        }
+        if (!valid) return;
+
+        var btn = document.getElementById('signup-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Creating account...';
+
+        try {
+          var data = await Auth.signup(email, password);
+
+          // Store token if returned
+          if (data.token) {
+            Auth.setToken(data.token);
+          }
+          if (data.user) {
+            Auth.setUser(data.user);
+          }
+
+          // Show API key
+          if (data.api_key) {
+            document.getElementById('api-key-display').textContent = data.api_key;
+            authCard.style.display = 'none';
+            apiKeyModal.style.display = '';
+          } else {
+            window.location.href = '/dashboard.html';
+          }
+        } catch (err) {
+          document.getElementById('signup-server-error').textContent = err.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Create Account';
+        }
+      });
+
+      // Login
+      loginForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        clearErrors();
+
+        var email = document.getElementById('login-email').value.trim();
+        var password = document.getElementById('login-password').value;
+        var valid = true;
+
+        if (!email || !isValidEmail(email)) {
+          document.getElementById('login-email-error').textContent = 'Please enter a valid email address.';
+          valid = false;
+        }
+        if (!password) {
+          document.getElementById('login-password-error').textContent = 'Please enter your password.';
+          valid = false;
+        }
+        if (!valid) return;
+
+        var btn = document.getElementById('login-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Logging in...';
+
+        try {
+          var data = await Auth.login(email, password);
+          if (data.token) {
+            Auth.setToken(data.token);
+          }
+          window.location.href = '/dashboard.html';
+        } catch (err) {
+          document.getElementById('login-server-error').textContent = err.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Log In';
+        }
+      });
+
+      // Copy API key
+      document.getElementById('copy-api-key').addEventListener('click', function () {
+        var key = document.getElementById('api-key-display').textContent;
+        navigator.clipboard.writeText(key).then(function () {
+          var btn = document.getElementById('copy-api-key');
+          btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Copied!';
+          btn.classList.remove('text-emerald-400', 'border-emerald-500/40');
+          btn.classList.add('text-emerald-300', 'border-emerald-400', 'bg-emerald-500/10');
+          setTimeout(function () {
+            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg> Copy API Key';
+            btn.classList.add('text-emerald-400', 'border-emerald-500/40');
+            btn.classList.remove('text-emerald-300', 'border-emerald-400', 'bg-emerald-500/10');
+          }, 2000);
+        });
+      });
+
+      // Go to dashboard
+      document.getElementById('go-to-dashboard').addEventListener('click', function () {
+        window.location.href = '/dashboard.html';
+      });
+
+      // Check URL params for tab
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'login') {
+        showLogin();
+      }
+    })();
+  </script>
+</body>
+</html>

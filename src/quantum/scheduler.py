@@ -13,6 +13,7 @@ import numpy as np
 
 from src.models.schemas import MeetingScheduleRequest, MeetingScheduleResult
 from src.quantum.qaoa import qaoa_optimize
+from src.quantum.validation import ValidationError, validate_and_preprocess_schedule
 
 # Map day names to indices
 DAY_MAP = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
@@ -38,6 +39,8 @@ def _slot_to_key(day: int, hour: int) -> str:
 
 async def optimize_schedule(request: MeetingScheduleRequest) -> MeetingScheduleResult:
     """Find optimal meeting schedule using quantum optimization."""
+    request, validation_warnings = validate_and_preprocess_schedule(request)
+
     participants = request.participants
     duration_hours = max(1, request.duration_minutes // 60)
     num_meetings = request.num_meetings
@@ -78,6 +81,7 @@ async def optimize_schedule(request: MeetingScheduleRequest) -> MeetingScheduleR
             satisfaction_score=0.0,
             method="QAOA (simulated)",
             qubit_count=0,
+            warnings=validation_warnings,
         )
 
     # Build QUBO: binary variable per slot (1 = selected for meeting)
@@ -145,4 +149,5 @@ async def optimize_schedule(request: MeetingScheduleRequest) -> MeetingScheduleR
         satisfaction_score=round(min(satisfaction, 1.0), 2),
         method="QAOA (simulated)",
         qubit_count=n_qubits,
+        warnings=validation_warnings,
     )

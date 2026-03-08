@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Quantum MCP Relayer Dashboard — Manage your API keys, view usage, and run quantum optimization tools." />
+  <meta name="theme-color" content="#7c3aed" />
+  <title>Dashboard — Quantum MCP Relayer</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+          colors: {
+            quantum: { dark: '#0b0d17', surface: '#111827', border: '#374151' }
+          }
+        }
+      }
+    };
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/custom.css" />
+
+  <style>
+    .dash-card {
+      background: var(--q-surface);
+      border: 1px solid var(--q-border);
+      border-radius: 0.75rem;
+    }
+    .dash-section-title {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--q-text-muted);
+      margin-bottom: 0.75rem;
+    }
+    .dash-tab {
+      padding: 0.5rem 1rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--q-text-muted);
+      border-bottom: 2px solid transparent;
+      background: none;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .dash-tab:hover { color: var(--q-text); }
+    .dash-tab[aria-selected="true"] {
+      color: var(--q-violet);
+      border-bottom-color: var(--q-violet);
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-card {
+      background: var(--q-surface);
+      border: 1px solid var(--q-border);
+      border-radius: 1rem;
+      max-width: 480px;
+      width: 100%;
+      padding: 1.5rem;
+    }
+    .key-display {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--q-dark);
+      border: 1px solid var(--q-border);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      word-break: break-all;
+    }
+    .dash-request-area {
+      background: #0d1117;
+      border: 1px solid var(--q-border);
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--q-violet);
+      min-height: 100px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .dash-result-area {
+      background: #0d1117;
+      border: 1px solid var(--q-border);
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      min-height: 100px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+
+<body class="antialiased min-h-screen flex flex-col">
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-20 right-4 z-[200] space-y-2" aria-live="polite"></div>
+
+  <!-- ============================================================
+       Top Navigation
+       ============================================================ -->
+  <nav class="nav-blur fixed top-0 inset-x-0 z-50" aria-label="Dashboard navigation">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+      <!-- Logo -->
+      <a href="/" class="flex items-center gap-2 text-white font-bold text-lg" aria-label="Quantum MCP Relayer home">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <circle cx="14" cy="14" r="12" stroke="url(#lgD)" stroke-width="2"/>
+          <circle cx="14" cy="14" r="4" fill="url(#lgD)"/>
+          <circle cx="14" cy="6" r="2" fill="#8b5cf6"/>
+          <circle cx="21" cy="18" r="2" fill="#06b6d4"/>
+          <circle cx="7" cy="18" r="2" fill="#ec4899"/>
+          <defs><linearGradient id="lgD" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#8b5cf6"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
+        </svg>
+        <span>Quantum MCP</span>
+      </a>
+
+      <!-- Desktop Nav -->
+      <div class="hidden md:flex items-center gap-1 text-sm">
+        <a href="#" data-nav="overview" class="px-3 py-2 rounded-md text-white border-b-2 border-violet-500 transition-colors">Dashboard</a>
+        <a href="#" data-nav="keys" class="px-3 py-2 rounded-md text-gray-400 hover:text-white transition-colors">API Keys</a>
+        <a href="#" data-nav="usage" class="px-3 py-2 rounded-md text-gray-400 hover:text-white transition-colors">Usage</a>
+        <a href="/" class="px-3 py-2 rounded-md text-gray-400 hover:text-white transition-colors">Docs</a>
+      </div>
+
+      <!-- User Menu -->
+      <div class="flex items-center gap-4">
+        <span id="user-email" class="hidden sm:block text-sm text-gray-400 truncate max-w-[180px]"></span>
+        <span id="tier-badge" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border bg-gray-500/15 text-gray-400 border-gray-500/30">Free</span>
+        <button id="logout-btn" class="text-sm text-gray-400 hover:text-white transition-colors" aria-label="Log out">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       Main Content
+       ============================================================ -->
+  <main class="flex-1 pt-20 pb-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+      <!-- ======================== OVERVIEW Section ======================== -->
+      <div data-section="overview">
+
+        <!-- API Key + Usage Row -->
+        <div class="grid lg:grid-cols-2 gap-6 mb-8">
+
+          <!-- API Key Card -->
+          <div class="dash-card p-6" data-section="keys">
+            <div class="dash-section-title">API Key</div>
+            <div class="flex items-center gap-3 mb-4">
+              <div id="masked-key" class="key-display flex-1 text-gray-300">qmr_****...****</div>
+              <button id="copy-key-btn" class="p-2 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors" aria-label="Copy API key" title="Copy key">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg>
+              </button>
+              <button id="regen-key-btn" class="p-2 rounded-lg border border-gray-700 text-gray-400 hover:text-amber-400 hover:border-amber-500/40 transition-colors" aria-label="Regenerate API key" title="Regenerate key">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg>
+              </button>
+            </div>
+            <p class="text-xs text-gray-500">Use this key in the <code class="text-violet-400">X-API-Key</code> header or in your MCP config's <code class="text-violet-400">QUANTUM_API_KEY</code> env var.</p>
+          </div>
+
+          <!-- Usage Card -->
+          <div class="dash-card p-6" data-section="usage">
+            <div class="dash-section-title">Usage This Month</div>
+            <div class="flex items-center justify-between mb-3">
+              <span id="usage-text" class="text-sm text-gray-300 font-medium">0 / 10 jobs</span>
+              <span id="usage-pct" class="text-sm text-gray-500">0%</span>
+            </div>
+            <div class="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
+              <div id="usage-bar-fill" class="h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r from-violet-500 to-cyan-500" style="width: 0%"></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">Resets on the 1st of each month. Upgrade your plan for more capacity.</p>
+          </div>
+        </div>
+
+        <!-- Upgrade Section -->
+        <div class="dash-card p-6 mb-8">
+          <div class="dash-section-title">Upgrade Your Plan</div>
+          <div id="upgrade-section">
+            <div class="text-center py-6 text-gray-500 text-sm">Loading plans...</div>
+          </div>
+        </div>
+
+        <!-- Quick Test Playground -->
+        <div class="dash-card mb-8 overflow-hidden">
+          <div class="border-b border-gray-700/60 px-4">
+            <div class="flex items-center justify-between">
+              <div id="dash-playground-tabs" class="flex gap-1 -mb-px" role="tablist" aria-label="Tool tabs">
+                <button role="tab" data-tab="portfolio" class="dash-tab" aria-selected="true">
+                  <span class="inline-block w-2 h-2 rounded-full bg-violet-400 mr-1.5 align-middle" aria-hidden="true"></span>
+                  Portfolio
+                </button>
+                <button role="tab" data-tab="route" class="dash-tab" aria-selected="false">
+                  <span class="inline-block w-2 h-2 rounded-full bg-cyan-400 mr-1.5 align-middle" aria-hidden="true"></span>
+                  Route
+                </button>
+                <button role="tab" data-tab="schedule" class="dash-tab" aria-selected="false">
+                  <span class="inline-block w-2 h-2 rounded-full bg-pink-400 mr-1.5 align-middle" aria-hidden="true"></span>
+                  Scheduler
+                </button>
+              </div>
+              <div class="flex items-center gap-2 py-2">
+                <span class="text-xs text-gray-500 font-mono hidden sm:inline" id="dash-endpoint">/api/v1/portfolio/optimize</span>
+                <button id="dash-run-btn" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-500 transition-colors disabled:opacity-50">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
+                  Run
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 sm:p-6">
+            <div class="grid lg:grid-cols-2 gap-4">
+              <!-- Request -->
+              <div>
+                <div class="text-xs font-medium text-gray-500 mb-2">Request Body</div>
+                <pre id="dash-request" class="dash-request-area" contenteditable="true" spellcheck="false" role="textbox" aria-label="Editable request JSON" tabindex="0"></pre>
+              </div>
+              <!-- Result -->
+              <div>
+                <div class="text-xs font-medium text-gray-500 mb-2">Result</div>
+                <div id="dash-result" class="dash-result-area">
+                  <div class="text-gray-500 text-sm py-8 text-center">Click "Run" to execute this query with your API key.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Jobs -->
+        <div class="dash-card p-6">
+          <div class="dash-section-title">Recent Jobs</div>
+          <div id="recent-jobs">
+            <div class="text-center py-8 text-gray-500 text-sm">Loading...</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ======================== KEYS Section (shown on nav click) ======================== -->
+      <div data-section="keys" style="display: none;">
+        <h2 class="text-2xl font-bold mb-6">API Key Management</h2>
+        <div class="dash-card p-6 mb-6">
+          <div class="dash-section-title">Your API Key</div>
+          <p class="text-sm text-gray-400 mb-4">Your API key is used to authenticate requests. Include it in the <code class="text-violet-400 text-xs">X-API-Key</code> header for all API calls.</p>
+          <div class="flex items-center gap-3">
+            <div class="key-display flex-1 text-gray-300 text-sm" id="masked-key-detail">qmr_****...****</div>
+            <button onclick="document.getElementById('copy-key-btn').click()" class="px-4 py-2 rounded-lg border border-gray-700 text-gray-300 text-sm hover:text-white hover:border-gray-500 transition-colors">Copy</button>
+            <button onclick="document.getElementById('regen-key-btn').click()" class="px-4 py-2 rounded-lg border border-amber-500/30 text-amber-400 text-sm hover:bg-amber-500/10 transition-colors">Regenerate</button>
+          </div>
+        </div>
+        <div class="dash-card p-6">
+          <div class="dash-section-title">MCP Configuration</div>
+          <div class="code-block p-4 relative">
+            <code class="block text-gray-300 text-sm"><span class="code-comment">// claude_desktop_config.json</span>
+{
+  <span class="code-key">"mcpServers"</span>: {
+    <span class="code-key">"quantum-relayer"</span>: {
+      <span class="code-key">"command"</span>: <span class="code-string">"uvx"</span>,
+      <span class="code-key">"args"</span>: [<span class="code-string">"quantum-mcp-relayer"</span>],
+      <span class="code-key">"env"</span>: {
+        <span class="code-key">"QUANTUM_API_KEY"</span>: <span class="code-string">"your-api-key-here"</span>
+      }
+    }
+  }
+}</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================== USAGE Section (shown on nav click) ======================== -->
+      <div data-section="usage" style="display: none;">
+        <h2 class="text-2xl font-bold mb-6">Usage & Billing</h2>
+        <div class="dash-card p-6 mb-6">
+          <div class="dash-section-title">Current Period Usage</div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-sm text-gray-300 font-medium">Jobs Used</span>
+            <span id="usage-detail-text" class="text-sm text-gray-400">0 / 10</span>
+          </div>
+          <div class="w-full h-4 bg-gray-800 rounded-full overflow-hidden">
+            <div id="usage-detail-bar" class="h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r from-violet-500 to-cyan-500" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="dash-card p-6">
+          <div class="dash-section-title">Plan</div>
+          <div id="upgrade-section-detail"></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ============================================================
+       Regenerate Key Confirmation Modal
+       ============================================================ -->
+  <div id="regen-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Regenerate API key confirmation">
+    <div class="modal-card">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center">
+          <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-lg">Regenerate API Key?</h3>
+          <p class="text-sm text-gray-400">Your current key will be permanently invalidated.</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-400 mb-6">Any applications using the current key will stop working immediately. Make sure to update all integrations with the new key.</p>
+      <div class="flex gap-3">
+        <button id="regen-cancel-btn" class="flex-1 py-2.5 rounded-lg border border-gray-600 text-gray-300 font-medium hover:border-gray-400 hover:text-white transition-colors text-sm">Cancel</button>
+        <button id="regen-confirm-btn" class="flex-1 py-2.5 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-400 transition-colors text-sm">Regenerate Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       New Key Display Modal
+       ============================================================ -->
+  <div id="new-key-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="New API key">
+    <div class="modal-card">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+        <h3 class="font-semibold text-lg text-amber-400">New API Key Generated</h3>
+      </div>
+      <p class="text-sm text-gray-300 mb-4">Copy your new API key now. <strong class="text-amber-300">You will not see it again.</strong></p>
+      <div id="new-key-display" class="key-display text-emerald-400 mb-4"></div>
+      <div class="flex gap-3">
+        <button id="copy-new-key" class="flex-1 py-2.5 rounded-lg border border-emerald-500/40 text-emerald-400 font-medium hover:bg-emerald-500/10 transition-colors text-sm">Copy New Key</button>
+        <button id="close-new-key" class="flex-1 py-2.5 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-500 transition-colors text-sm">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

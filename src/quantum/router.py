@@ -12,6 +12,7 @@ import numpy as np
 
 from src.models.schemas import Location, RouteRequest, RouteResult
 from src.quantum.qaoa import qaoa_optimize
+from src.quantum.validation import ValidationError, validate_and_preprocess_route
 
 
 def _haversine(loc1: Location, loc2: Location) -> float:
@@ -111,6 +112,8 @@ def _route_distance(route: list[int], dist_matrix: np.ndarray, loop: bool) -> fl
 
 async def optimize_route(request: RouteRequest) -> RouteResult:
     """Find optimal route through locations using quantum QAOA."""
+    request, validation_warnings = validate_and_preprocess_route(request)
+
     locations = request.locations
     n = len(locations)
     dist_matrix = _build_distance_matrix(locations)
@@ -172,4 +175,5 @@ async def optimize_route(request: RouteRequest) -> RouteResult:
         improvement_vs_naive=round(max(improvement, 0), 1),
         method="QAOA (simulated)" if n <= 5 else "Quantum-inspired 2-opt",
         qubit_count=n_qubits,
+        warnings=validation_warnings,
     )

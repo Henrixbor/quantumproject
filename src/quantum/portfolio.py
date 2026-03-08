@@ -9,22 +9,9 @@ from __future__ import annotations
 import numpy as np
 
 from src.models.schemas import PortfolioRequest, PortfolioResult
+from src.quantum.market_data import DEFAULT_RETURNS, DEFAULT_VOLATILITY
 from src.quantum.qaoa import qaoa_optimize
-
-# Default market data (annualized) for common assets
-DEFAULT_RETURNS: dict[str, float] = {
-    "BTC": 0.65, "ETH": 0.80, "SOL": 1.20, "BNB": 0.40, "ADA": 0.35,
-    "DOT": 0.30, "AVAX": 0.55, "MATIC": 0.45, "LINK": 0.40, "UNI": 0.35,
-    "AAPL": 0.12, "GOOGL": 0.15, "MSFT": 0.14, "AMZN": 0.18, "TSLA": 0.35,
-    "NVDA": 0.45, "META": 0.20, "SPY": 0.10, "QQQ": 0.13, "GLD": 0.05,
-}
-
-DEFAULT_VOLATILITY: dict[str, float] = {
-    "BTC": 0.60, "ETH": 0.75, "SOL": 0.95, "BNB": 0.50, "ADA": 0.80,
-    "DOT": 0.85, "AVAX": 0.90, "MATIC": 0.85, "LINK": 0.70, "UNI": 0.80,
-    "AAPL": 0.22, "GOOGL": 0.25, "MSFT": 0.20, "AMZN": 0.28, "TSLA": 0.55,
-    "NVDA": 0.45, "META": 0.35, "SPY": 0.15, "QQQ": 0.18, "GLD": 0.12,
-}
+from src.quantum.validation import ValidationError, validate_and_preprocess_portfolio
 
 
 def _build_covariance_matrix(
@@ -90,6 +77,8 @@ def _portfolio_to_qubo(
 
 async def optimize_portfolio(request: PortfolioRequest) -> PortfolioResult:
     """Optimize portfolio allocation using quantum QAOA."""
+    request, validation_warnings = validate_and_preprocess_portfolio(request)
+
     symbols = [a.symbol.upper() for a in request.assets]
     n = len(symbols)
 
@@ -107,12 +96,22 @@ async def optimize_portfolio(request: PortfolioRequest) -> PortfolioResult:
 
     cov_matrix = _build_covariance_matrix(symbols, volatilities.tolist())
 
-    # Build QUBO and run QAOA
-    bits_per_asset = 3 if n <= 6 else 2
+    # Build QUBO and run QAOA — scale complexity with problem size
+    # Keep total qubits <= 14 to stay under 1 second
+    if n <= 4:
+        bits_per_asset = 3
+        num_layers = 3
+    elif n <= 7:
+        bits_per_asset = 2
+        num_layers = 2
+    else:
+        bits_per_asset = 1
+        num_layers = 2
+
     qubo = _portfolio_to_qubo(returns, cov_matrix, request.risk_tolerance, bits_per_asset)
     n_qubits = n * bits_per_asset
 
-    bitstring, _ = qaoa_optimize(qubo, num_layers=3, num_shots=1024)
+    bitstring, _ = qaoa_optimize(qubo, num_layers=num_layers, num_shots=512)
 
     # Decode bitstring to allocations
     levels = 2**bits_per_asset
@@ -145,4 +144,5 @@ async def optimize_portfolio(request: PortfolioRequest) -> PortfolioResult:
         sharpe_ratio=round(sharpe, 2),
         method="QAOA (simulated)",
         qubit_count=n_qubits,
+        warnings=validation_warnings,
     )

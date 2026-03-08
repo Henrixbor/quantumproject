@@ -10,6 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.api.middleware import attach_middleware
+from src.api.routes_auth import router as auth_router
+from src.api.routes_billing import router as billing_router
 from src.config import get_settings
 from src.models.schemas import (
     MeetingScheduleRequest,
@@ -22,6 +24,7 @@ from src.models.schemas import (
 from src.quantum.portfolio import optimize_portfolio
 from src.quantum.router import optimize_route
 from src.quantum.scheduler import optimize_schedule
+from src.quantum.validation import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,13 @@ app = FastAPI(
 
 attach_middleware(app)
 
+# ---------------------------------------------------------------------------
+# Routers
+# ---------------------------------------------------------------------------
+
+app.include_router(auth_router)
+app.include_router(billing_router)
+
 
 @app.get("/health")
 async def health() -> dict[str, str]:
@@ -46,6 +56,8 @@ async def api_optimize_portfolio(request: PortfolioRequest) -> PortfolioResult:
     """Optimize portfolio allocation using quantum QAOA."""
     try:
         return await optimize_portfolio(request)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.message) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Optimization failed: {e}") from e
 
@@ -55,6 +67,8 @@ async def api_optimize_route(request: RouteRequest) -> RouteResult:
     """Find optimal route through locations using quantum TSP solver."""
     try:
         return await optimize_route(request)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.message) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Optimization failed: {e}") from e
 
@@ -64,6 +78,8 @@ async def api_optimize_schedule(request: MeetingScheduleRequest) -> MeetingSched
     """Find optimal meeting schedule using quantum optimization."""
     try:
         return await optimize_schedule(request)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.message) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Optimization failed: {e}") from e
 

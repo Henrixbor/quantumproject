@@ -67,8 +67,9 @@
         <a href="#playground" class="hover:text-white transition-colors">Playground</a>
         <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
         <a href="#docs" class="hover:text-white transition-colors">Docs</a>
-        <a href="#waitlist" class="inline-flex items-center px-4 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-500 transition-colors">
-          Get Started
+        <a href="/auth.html?tab=login" id="nav-login-link" class="hover:text-white transition-colors">Log In</a>
+        <a href="/auth.html" id="nav-cta-link" class="inline-flex items-center px-4 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-500 transition-colors">
+          Get Started Free
         </a>
       </div>
 
@@ -86,7 +87,8 @@
       <a href="#playground" class="block py-2 hover:text-white transition-colors">Playground</a>
       <a href="#pricing" class="block py-2 hover:text-white transition-colors">Pricing</a>
       <a href="#docs" class="block py-2 hover:text-white transition-colors">Docs</a>
-      <a href="#waitlist" class="block py-2 text-violet-400 font-medium">Get Started</a>
+      <a href="/auth.html?tab=login" class="block py-2 hover:text-white transition-colors" id="mobile-login-link">Log In</a>
+      <a href="/auth.html" class="block py-2 text-violet-400 font-medium" id="mobile-cta-link">Get Started Free</a>
     </div>
   </nav>
 
@@ -313,8 +315,8 @@
                 <span>Community support</span>
               </li>
             </ul>
-            <a href="#waitlist" class="block text-center px-4 py-2.5 rounded-lg border border-gray-600 text-gray-300 font-medium hover:border-gray-400 hover:text-white transition-colors">
-              Get Started
+            <a href="/auth.html" class="block text-center px-4 py-2.5 rounded-lg border border-gray-600 text-gray-300 font-medium hover:border-gray-400 hover:text-white transition-colors">
+              Get Started Free
             </a>
           </div>
 
@@ -346,7 +348,7 @@
                 <span>API key management</span>
               </li>
             </ul>
-            <a href="#waitlist" class="block text-center px-4 py-2.5 rounded-lg border border-gray-600 text-gray-300 font-medium hover:border-gray-400 hover:text-white transition-colors">
+            <a href="/auth.html" class="block text-center px-4 py-2.5 rounded-lg border border-gray-600 text-gray-300 font-medium hover:border-gray-400 hover:text-white transition-colors">
               Get Started
             </a>
           </div>
@@ -384,7 +386,7 @@
                 <span>99.9% SLA</span>
               </li>
             </ul>
-            <a href="#waitlist" class="block text-center px-4 py-2.5 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-500 transition-colors">
+            <a href="/auth.html" class="block text-center px-4 py-2.5 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-500 transition-colors">
               Get Started
             </a>
           </div>
@@ -421,7 +423,7 @@
                 <span>99.99% SLA</span>
               </li>
             </ul>
-            <a href="#waitlist" class="block text-center px-4 py-2.5 rounded-lg border border-gray-600 text-gray-300 font-medium hover:border-gray-400 hover:text-white transition-colors">
+            <a href="/auth.html" class="block text-center px-4 py-2.5 rounded-lg border border-gray-600 text-gray-300 font-medium hover:border-gray-400 hover:text-white transition-colors">
               Contact Sales
             </a>
           </div>
@@ -546,33 +548,26 @@ result = response.json()
     <!-- ============================================================
          Waitlist / Signup Section
          ============================================================ -->
-    <section id="waitlist" class="py-24 md:py-32" aria-labelledby="waitlist-heading">
+    <section id="signup" class="py-24 md:py-32" aria-labelledby="signup-heading">
       <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div class="reveal gradient-border p-8 sm:p-12">
-          <h2 id="waitlist-heading" class="text-3xl sm:text-4xl font-bold mb-4">
+          <h2 id="signup-heading" class="text-3xl sm:text-4xl font-bold mb-4">
             Ready to go <span class="gradient-text">quantum</span>?
           </h2>
           <p class="text-gray-400 text-lg mb-8">
-            Join the waitlist for early access. We will send you an API key and onboarding guide.
+            Create your free account and get an API key instantly. No credit card required.
           </p>
 
-          <form id="waitlist-form" class="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
-            <label for="waitlist-email" class="sr-only">Email address</label>
-            <input
-              id="waitlist-email"
-              type="email"
-              name="email"
-              required
-              placeholder="you@company.com"
-              autocomplete="email"
-              class="waitlist-input flex-1"
-              aria-describedby="waitlist-msg"
-            />
-            <button type="submit" class="px-6 py-3 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-500 transition-colors shrink-0">
-              Join Waitlist
-            </button>
-          </form>
-          <p id="waitlist-msg" class="mt-3 text-sm text-gray-500" aria-live="polite">No spam, ever. Unsubscribe anytime.</p>
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a href="/auth.html" class="pulse-btn inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-violet-600 text-white font-semibold text-lg hover:bg-violet-500 transition-colors">
+              Get Started Free
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+            </a>
+            <a href="/auth.html?tab=login" class="inline-flex items-center gap-2 px-8 py-4 rounded-xl border border-gray-600 text-gray-300 font-semibold text-lg hover:border-gray-400 hover:text-white transition-colors">
+              Log In
+            </a>
+          </div>
+          <p class="mt-6 text-sm text-gray-500">Free tier includes 10 optimization jobs per month.</p>
         </div>
       </div>
     </section>
@@ -607,7 +602,8 @@ result = response.json()
     </div>
   </footer>
 
-  <!-- Playground JS -->
+  <!-- Auth + Playground JS -->
+  <script src="/js/auth.js"></script>
   <script src="/js/playground.js"></script>
 </body>
 </html>

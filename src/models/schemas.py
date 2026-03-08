@@ -35,6 +35,7 @@ class PortfolioResult(BaseModel):
     sharpe_ratio: float = Field(description="Risk-adjusted return metric")
     method: str = Field(description="Optimization method used")
     qubit_count: int = Field(description="Number of qubits used")
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal validation warnings")
 
 
 # --- Route Optimizer (TSP) ---
@@ -60,6 +61,7 @@ class RouteResult(BaseModel):
     )
     method: str
     qubit_count: int
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal validation warnings")
 
 
 # --- Meeting Scheduler ---
@@ -96,3 +98,44 @@ class MeetingScheduleResult(BaseModel):
     )
     method: str
     qubit_count: int
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal validation warnings")
+
+
+# --- Auth & Billing Schemas ------------------------------------------------
+
+class SignupRequest(BaseModel):
+    email: str = Field(description="User email address")
+    password: str = Field(min_length=8, description="Password (min 8 characters)")
+
+
+class SignupResponse(BaseModel):
+    id: str
+    email: str
+    api_key: str = Field(description="Your API key — shown only once, store it securely")
+    tier: str
+    message: str = "Account created. Save your API key — it will not be shown again."
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(description="User email address")
+    password: str = Field(description="Account password")
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int = Field(description="Token lifetime in seconds")
+
+
+class UserProfile(BaseModel):
+    id: str
+    email: str
+    tier: str
+    usage_count: int
+    api_key_hint: str = Field(description="Masked API key (last 8 chars visible)")
+    stripe_customer_id: str = ""
+    created_at: float
+
+
+class CheckoutRequest(BaseModel):
+    tier: str = Field(description="Target tier: starter, pro, or business")

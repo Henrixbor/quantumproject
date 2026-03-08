@@ -1,6 +1,6 @@
 /**
  * Quantum MCP Relayer — Interactive Playground
- * Handles tabbed API demos, form submission, scroll reveal, and waitlist.
+ * Handles tabbed API demos, form submission, scroll reveal, and auth-aware query execution.
  */
 
 (function () {
@@ -69,6 +69,26 @@
       }
     }
   };
+
+  /* ====================================================================
+     Auth state tracking for demo mode
+     ==================================================================== */
+
+  var hasUsedDemo = false;
+
+  function isLoggedIn() {
+    return typeof Auth !== 'undefined' && Auth.isLoggedIn();
+  }
+
+  function getUserApiKey() {
+    if (!isLoggedIn()) return null;
+    try {
+      var user = Auth.getUser();
+      return user ? (user.api_key || user.masked_api_key || null) : null;
+    } catch (_e) {
+      return null;
+    }
+  }
 
   /* ====================================================================
      DOM references
@@ -161,6 +181,27 @@
   }
 
   /* ====================================================================
+     Signup Prompt Overlay
+     ==================================================================== */
+
+  function showSignupOverlay() {
+    if (!responseArea) return;
+    responseArea.innerHTML = '';
+    responseArea.classList.remove('text-red-400', 'text-emerald-400', 'text-gray-500');
+
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;min-height:120px;';
+    overlay.innerHTML =
+      '<svg class="w-8 h-8 text-violet-400 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>' +
+      '<p class="text-gray-300 font-medium mb-1">Sign up to run queries</p>' +
+      '<p class="text-gray-500 text-sm mb-3">Create a free account to get your API key and start optimizing.</p>' +
+      '<a href="/auth.html" class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-500 transition-colors">' +
+      'Get Started Free <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg></a>';
+
+    responseArea.appendChild(overlay);
+  }
+
+  /* ====================================================================
      Run Query
      ==================================================================== */
 
@@ -168,6 +209,12 @@
     runBtn.addEventListener('click', async function () {
       var payload = PAYLOADS[activeTab];
       var body;
+
+      // If not logged in and already used demo, show signup prompt
+      if (!isLoggedIn() && hasUsedDemo) {
+        showSignupOverlay();
+        return;
+      }
 
       try {
         body = JSON.parse(requestArea.textContent);
@@ -185,9 +232,17 @@
       responseArea.classList.add('text-gray-500');
 
       try {
+        var headers = { 'Content-Type': 'application/json' };
+
+        // Inject API key if logged in
+        var apiKey = getUserApiKey();
+        if (apiKey) {
+          headers['X-API-Key'] = apiKey;
+        }
+
         var res = await fetch(payload.url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify(body)
         });
 
@@ -197,6 +252,11 @@
           responseArea.textContent = JSON.stringify(data, null, 2);
           responseArea.classList.remove('text-gray-500', 'text-red-400');
           responseArea.classList.add('text-emerald-400');
+
+          // Mark demo as used for non-authenticated users
+          if (!isLoggedIn()) {
+            hasUsedDemo = true;
+          }
         } else {
           responseArea.textContent = '// Error ' + res.status + '\n' + JSON.stringify(data, null, 2);
           responseArea.classList.remove('text-gray-500', 'text-emerald-400');
@@ -209,51 +269,6 @@
       } finally {
         runBtn.disabled = false;
         runBtn.innerHTML = '\u25B6 Run Query';
-      }
-    });
-  }
-
-  /* ====================================================================
-     Waitlist Form
-     ==================================================================== */
-
-  var waitlistForm = document.getElementById('waitlist-form');
-  var waitlistMsg = document.getElementById('waitlist-msg');
-
-  if (waitlistForm) {
-    waitlistForm.addEventListener('submit', async function (e) {
-      e.preventDefault();
-      var emailInput = waitlistForm.querySelector('input[type="email"]');
-      var email = emailInput.value.trim();
-      if (!email) return;
-
-      var submitBtn = waitlistForm.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
-
-      try {
-        var res = await fetch('/api/v1/waitlist', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email })
-        });
-
-        var data = await res.json();
-
-        if (res.ok) {
-          waitlistMsg.textContent = data.message || 'You\'re on the list! We\'ll be in touch.';
-          waitlistMsg.className = 'mt-3 text-sm text-emerald-400';
-          emailInput.value = '';
-        } else {
-          waitlistMsg.textContent = data.detail || 'Something went wrong. Please try again.';
-          waitlistMsg.className = 'mt-3 text-sm text-red-400';
-        }
-      } catch (_err) {
-        waitlistMsg.textContent = 'Network error. Please try again.';
-        waitlistMsg.className = 'mt-3 text-sm text-red-400';
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Join Waitlist';
       }
     });
   }
@@ -332,6 +347,36 @@
 
     sections.forEach(function (s) { navObserver.observe(s); });
   }
+
+  /* ====================================================================
+     Update nav based on auth state
+     ==================================================================== */
+
+  function updateIndexNav() {
+    if (!isLoggedIn()) return;
+
+    var ctaLink = document.getElementById('nav-cta-link');
+    var loginLink = document.getElementById('nav-login-link');
+    var mobileCtaLink = document.getElementById('mobile-cta-link');
+    var mobileLoginLink = document.getElementById('mobile-login-link');
+
+    if (ctaLink) {
+      ctaLink.href = '/dashboard.html';
+      ctaLink.textContent = 'Dashboard';
+    }
+    if (loginLink) {
+      loginLink.style.display = 'none';
+    }
+    if (mobileCtaLink) {
+      mobileCtaLink.href = '/dashboard.html';
+      mobileCtaLink.textContent = 'Dashboard';
+    }
+    if (mobileLoginLink) {
+      mobileLoginLink.style.display = 'none';
+    }
+  }
+
+  updateIndexNav();
 
   /* ====================================================================
      Init — set first tab active

@@ -29,6 +29,15 @@ class Settings(BaseSettings):
 
     api_key_salt: str = Field(default="dev-salt-change-me")
 
+    # JWT
+    jwt_secret: str = Field(default="dev-jwt-secret-change-me-in-production")
+    jwt_expiry_hours: int = 24
+
+    # Stripe price IDs — set these to your live/test Stripe Price objects
+    stripe_price_starter: str = ""
+    stripe_price_pro: str = ""
+    stripe_price_business: str = ""
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
