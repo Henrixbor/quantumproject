@@ -6,6 +6,7 @@ All JWT tokens are signed with HS256 using the configured ``jwt_secret``.
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Annotated
 
@@ -16,6 +17,7 @@ from src.config import get_settings
 from src.models.schemas import (
     LoginRequest,
     LoginResponse,
+    RegenerateKeyResponse,
     SignupRequest,
     SignupResponse,
     UserProfile,
@@ -77,7 +79,7 @@ def _get_current_user(authorization: Annotated[str, Header()]) -> User:
 async def signup(body: SignupRequest) -> SignupResponse:
     """Create a new account and return a one-time API key."""
     email = body.email.strip().lower()
-    if not email or "@" not in email:
+    if not email or not re.match(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$", email):
         raise HTTPException(status_code=422, detail="Invalid email address.")
 
     try:
@@ -123,11 +125,8 @@ async def me(user: User = Depends(_get_current_user)) -> UserProfile:
     )
 
 
-@router.post("/regenerate-key")
-async def regenerate_key(user: User = Depends(_get_current_user)) -> dict:
+@router.post("/regenerate-key", response_model=RegenerateKeyResponse)
+async def regenerate_key(user: User = Depends(_get_current_user)) -> RegenerateKeyResponse:
     """Invalidate the current API key and issue a new one (shown once)."""
     raw_key = user_store.regenerate_api_key(user.id)
-    return {
-        "api_key": raw_key,
-        "message": "New API key generated. The old key is now invalid. Save this — it will not be shown again.",
-    }
+    return RegenerateKeyResponse(api_key=raw_key)

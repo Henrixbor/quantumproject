@@ -1,6 +1,7 @@
 /**
  * Quantum MCP Relayer — Interactive Playground
- * Handles tabbed API demos, form submission, scroll reveal, and auth-aware query execution.
+ * Handles tabbed API demos, form submission, scroll reveal, copy feedback,
+ * auth-aware query execution, and micro-interactions.
  */
 
 (function () {
@@ -104,7 +105,7 @@
   let activeTab = 'portfolio';
 
   /* ====================================================================
-     Tab Management
+     Tab Management with smooth transitions
      ==================================================================== */
 
   function setActiveTab(tabName) {
@@ -112,19 +113,24 @@
     const payload = PAYLOADS[tabName];
 
     // Update tab ARIA states
-    tabList.querySelectorAll('[role="tab"]').forEach(function (btn) {
-      var selected = btn.dataset.tab === tabName;
-      btn.setAttribute('aria-selected', String(selected));
-    });
+    if (tabList) {
+      tabList.querySelectorAll('[role="tab"]').forEach(function (btn) {
+        var selected = btn.dataset.tab === tabName;
+        btn.setAttribute('aria-selected', String(selected));
+        btn.setAttribute('tabindex', selected ? '0' : '-1');
+      });
+    }
 
     // Show corresponding panel
     document.querySelectorAll('[role="tabpanel"]').forEach(function (panel) {
       panel.hidden = panel.id !== 'panel-' + tabName;
     });
 
-    // Update request body
+    // Update request body with fade animation
     if (requestArea) {
+      requestArea.classList.add('tab-panel-transition');
       requestArea.textContent = JSON.stringify(payload.data, null, 2);
+      setTimeout(function () { requestArea.classList.remove('tab-panel-transition'); }, 250);
     }
 
     // Update endpoint labels
@@ -135,11 +141,13 @@
       methodLabel.textContent = 'POST';
     }
 
-    // Clear previous response
+    // Clear previous response with transition
     if (responseArea) {
+      responseArea.classList.add('tab-panel-transition');
       responseArea.textContent = '// Click "Run Query" to see the response';
       responseArea.classList.remove('text-red-400', 'text-emerald-400');
-      responseArea.classList.add('text-gray-500');
+      responseArea.classList.add('text-gray-400');
+      setTimeout(function () { responseArea.classList.remove('tab-panel-transition'); }, 250);
     }
   }
 
@@ -187,12 +195,12 @@
   function showSignupOverlay() {
     if (!responseArea) return;
     responseArea.innerHTML = '';
-    responseArea.classList.remove('text-red-400', 'text-emerald-400', 'text-gray-500');
+    responseArea.classList.remove('text-red-400', 'text-emerald-400', 'text-gray-400');
 
     var overlay = document.createElement('div');
     overlay.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;min-height:120px;';
     overlay.innerHTML =
-      '<svg class="w-8 h-8 text-violet-400 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>' +
+      '<svg class="w-8 h-8 text-violet-400 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>' +
       '<p class="text-gray-300 font-medium mb-1">Sign up to run queries</p>' +
       '<p class="text-gray-500 text-sm mb-3">Create a free account to get your API key and start optimizing.</p>' +
       '<a href="/auth.html" class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-500 transition-colors">' +
@@ -202,7 +210,7 @@
   }
 
   /* ====================================================================
-     Run Query
+     Run Query with loading spinner
      ==================================================================== */
 
   if (runBtn) {
@@ -221,15 +229,28 @@
       } catch (_err) {
         responseArea.textContent = '// Error: invalid JSON in request body';
         responseArea.classList.add('text-red-400');
+        if (typeof showToast === 'function') {
+          showToast('Invalid JSON in the request body. Please fix and try again.', 'error');
+        }
         return;
       }
 
-      // Loading state
+      // Loading state with spinner
       runBtn.disabled = true;
-      runBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Running\u2026';
-      responseArea.textContent = '// Sending request to quantum backend\u2026';
-      responseArea.classList.remove('text-red-400', 'text-emerald-400');
-      responseArea.classList.add('text-gray-500');
+      runBtn.innerHTML = '<span class="spinner" role="status" aria-label="Running query"></span> Running\u2026';
+
+      // Show skeleton loading in response area
+      responseArea.innerHTML = '';
+      responseArea.classList.remove('text-red-400', 'text-emerald-400', 'text-gray-400');
+      var loadingHtml = '<div style="padding:0.5rem 0;">';
+      loadingHtml += '<div class="skeleton skeleton-text" style="width:80%"></div>';
+      loadingHtml += '<div class="skeleton skeleton-text" style="width:60%"></div>';
+      loadingHtml += '<div class="skeleton skeleton-text" style="width:70%"></div>';
+      loadingHtml += '<div class="skeleton skeleton-bar" style="width:90%;margin-top:1rem"></div>';
+      loadingHtml += '<div class="skeleton skeleton-text" style="width:50%;margin-top:0.75rem"></div>';
+      loadingHtml += '<div class="skeleton skeleton-text" style="width:65%"></div>';
+      loadingHtml += '</div>';
+      responseArea.innerHTML = loadingHtml;
 
       try {
         var headers = { 'Content-Type': 'application/json' };
@@ -250,8 +271,12 @@
 
         if (res.ok) {
           responseArea.textContent = JSON.stringify(data, null, 2);
-          responseArea.classList.remove('text-gray-500', 'text-red-400');
+          responseArea.classList.remove('text-gray-400', 'text-red-400');
           responseArea.classList.add('text-emerald-400');
+
+          if (typeof showToast === 'function') {
+            showToast('Query executed successfully', 'success');
+          }
 
           // Mark demo as used for non-authenticated users
           if (!isLoggedIn()) {
@@ -259,13 +284,21 @@
           }
         } else {
           responseArea.textContent = '// Error ' + res.status + '\n' + JSON.stringify(data, null, 2);
-          responseArea.classList.remove('text-gray-500', 'text-emerald-400');
+          responseArea.classList.remove('text-gray-400', 'text-emerald-400');
           responseArea.classList.add('text-red-400');
+
+          if (typeof showToast === 'function') {
+            showToast('API error: ' + (data.detail || 'Request failed with status ' + res.status), 'error');
+          }
         }
       } catch (err) {
         responseArea.textContent = '// Network error: ' + err.message + '\n// Make sure the API server is running on this host.';
-        responseArea.classList.remove('text-gray-500', 'text-emerald-400');
+        responseArea.classList.remove('text-gray-400', 'text-emerald-400');
         responseArea.classList.add('text-red-400');
+
+        if (typeof showToast === 'function') {
+          showToast('Network error: Could not reach the API server.', 'error');
+        }
       } finally {
         runBtn.disabled = false;
         runBtn.innerHTML = '\u25B6 Run Query';
@@ -274,18 +307,41 @@
   }
 
   /* ====================================================================
-     Copy Buttons for Code Blocks
+     Copy Buttons for Code Blocks with tooltip feedback
      ==================================================================== */
 
   document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.style.position = 'relative';
+
     btn.addEventListener('click', function () {
       var block = btn.closest('.code-block');
       var code = block.querySelector('code');
       if (!code) return;
+
       navigator.clipboard.writeText(code.textContent).then(function () {
+        // Show tooltip
+        var tooltip = document.createElement('div');
+        tooltip.className = 'copy-tooltip';
+        tooltip.textContent = 'Copied!';
+        btn.appendChild(tooltip);
+
+        requestAnimationFrame(function () {
+          tooltip.classList.add('visible');
+        });
+
+        // Change button text temporarily
         var original = btn.textContent;
         btn.textContent = 'Copied!';
-        setTimeout(function () { btn.textContent = original; }, 1500);
+        btn.appendChild(tooltip);
+
+        setTimeout(function () {
+          btn.textContent = original;
+          tooltip.remove();
+        }, 1500);
+
+        if (typeof showToast === 'function') {
+          showToast('Code copied to clipboard', 'success');
+        }
       });
     });
   });
@@ -324,6 +380,14 @@
       navToggle.setAttribute('aria-expanded', String(!expanded));
       mobileNav.classList.toggle('open');
     });
+
+    // Close mobile nav when a link is clicked
+    mobileNav.querySelectorAll('a').forEach(function (link) {
+      link.addEventListener('click', function () {
+        mobileNav.classList.remove('open');
+        navToggle.setAttribute('aria-expanded', 'false');
+      });
+    });
   }
 
   /* ====================================================================
@@ -338,8 +402,9 @@
       entries.forEach(function (entry) {
         if (entry.isIntersecting) {
           navLinks.forEach(function (link) {
-            link.classList.toggle('text-violet-400',
-              link.getAttribute('href') === '#' + entry.target.id);
+            var isActive = link.getAttribute('href') === '#' + entry.target.id;
+            link.classList.toggle('text-violet-400', isActive);
+            link.classList.toggle('nav-link-active', isActive);
           });
         }
       });

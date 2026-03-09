@@ -113,8 +113,11 @@
 
 <body class="antialiased min-h-screen flex flex-col">
 
+  <!-- Skip Navigation -->
+  <a href="#dash-main" class="skip-link">Skip to main content</a>
+
   <!-- Toast Container -->
-  <div id="toast-container" class="fixed top-20 right-4 z-[200] space-y-2" aria-live="polite"></div>
+  <div id="toast-container" class="fixed top-20 right-4 z-[200] space-y-2" aria-live="assertive" role="status"></div>
 
   <!-- ============================================================
        Top Navigation
@@ -143,24 +146,47 @@
       </div>
 
       <!-- User Menu -->
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3">
         <span id="user-email" class="hidden sm:block text-sm text-gray-400 truncate max-w-[180px]"></span>
         <span id="tier-badge" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border bg-gray-500/15 text-gray-400 border-gray-500/30">Free</span>
-        <button id="logout-btn" class="text-sm text-gray-400 hover:text-white transition-colors" aria-label="Log out">
+        <button id="logout-btn" class="text-sm text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800/50" aria-label="Log out" title="Log out">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
         </button>
+
+        <!-- Mobile nav toggle -->
+        <button id="dash-nav-toggle" class="md:hidden text-gray-400 hover:text-white p-2" aria-expanded="false" aria-label="Toggle dashboard navigation">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
       </div>
+    </div>
+
+    <!-- Mobile dashboard nav -->
+    <div id="dash-mobile-nav" class="mobile-nav md:hidden text-sm">
+      <a href="#" data-nav="overview" class="block py-2 text-white font-medium">Dashboard</a>
+      <a href="#" data-nav="keys" class="block py-2 text-gray-400 hover:text-white transition-colors">API Keys</a>
+      <a href="#" data-nav="usage" class="block py-2 text-gray-400 hover:text-white transition-colors">Usage</a>
+      <a href="/" class="block py-2 text-gray-400 hover:text-white transition-colors">Docs</a>
     </div>
   </nav>
 
   <!-- ============================================================
        Main Content
        ============================================================ -->
-  <main class="flex-1 pt-20 pb-12">
+  <main id="dash-main" class="flex-1 pt-20 pb-12">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb mb-4" aria-label="Breadcrumb">
+        <a href="/">Home</a>
+        <span class="separator" aria-hidden="true">/</span>
+        <span class="current" id="breadcrumb-current">Dashboard</span>
+      </nav>
+
       <!-- ======================== OVERVIEW Section ======================== -->
-      <div data-section="overview">
+      <section data-section="overview" aria-label="Dashboard overview">
+        <h1 class="sr-only">Dashboard</h1>
 
         <!-- API Key + Usage Row -->
         <div class="grid lg:grid-cols-2 gap-6 mb-8">
@@ -171,13 +197,13 @@
             <div class="flex items-center gap-3 mb-4">
               <div id="masked-key" class="key-display flex-1 text-gray-300">qmr_****...****</div>
               <button id="copy-key-btn" class="p-2 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors" aria-label="Copy API key" title="Copy key">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg>
               </button>
               <button id="regen-key-btn" class="p-2 rounded-lg border border-gray-700 text-gray-400 hover:text-amber-400 hover:border-amber-500/40 transition-colors" aria-label="Regenerate API key" title="Regenerate key">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg>
               </button>
             </div>
-            <p class="text-xs text-gray-500">Use this key in the <code class="text-violet-400">X-API-Key</code> header or in your MCP config's <code class="text-violet-400">QUANTUM_API_KEY</code> env var.</p>
+            <p class="text-xs text-gray-400">Use this key in the <code class="text-violet-400">X-API-Key</code> header or in your MCP config's <code class="text-violet-400">QUANTUM_API_KEY</code> env var.</p>
           </div>
 
           <!-- Usage Card -->
@@ -185,12 +211,12 @@
             <div class="dash-section-title">Usage This Month</div>
             <div class="flex items-center justify-between mb-3">
               <span id="usage-text" class="text-sm text-gray-300 font-medium">0 / 10 jobs</span>
-              <span id="usage-pct" class="text-sm text-gray-500">0%</span>
+              <span id="usage-pct" class="text-sm text-gray-400">0%</span>
             </div>
             <div class="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
               <div id="usage-bar-fill" class="h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r from-violet-500 to-cyan-500" style="width: 0%"></div>
             </div>
-            <p class="text-xs text-gray-500 mt-3">Resets on the 1st of each month. Upgrade your plan for more capacity.</p>
+            <p class="text-xs text-gray-400 mt-3">Resets on the 1st of each month. Upgrade your plan for more capacity.</p>
           </div>
         </div>
 
@@ -198,7 +224,7 @@
         <div class="dash-card p-6 mb-8">
           <div class="dash-section-title">Upgrade Your Plan</div>
           <div id="upgrade-section">
-            <div class="text-center py-6 text-gray-500 text-sm">Loading plans...</div>
+            <div class="text-center py-6 text-gray-400 text-sm" role="status">Loading plans...</div>
           </div>
         </div>
 
@@ -207,23 +233,23 @@
           <div class="border-b border-gray-700/60 px-4">
             <div class="flex items-center justify-between">
               <div id="dash-playground-tabs" class="flex gap-1 -mb-px" role="tablist" aria-label="Tool tabs">
-                <button role="tab" data-tab="portfolio" class="dash-tab" aria-selected="true">
+                <button role="tab" data-tab="portfolio" class="dash-tab" aria-selected="true" id="dash-tab-portfolio" aria-controls="dash-panel-portfolio" tabindex="0">
                   <span class="inline-block w-2 h-2 rounded-full bg-violet-400 mr-1.5 align-middle" aria-hidden="true"></span>
                   Portfolio
                 </button>
-                <button role="tab" data-tab="route" class="dash-tab" aria-selected="false">
+                <button role="tab" data-tab="route" class="dash-tab" aria-selected="false" id="dash-tab-route" aria-controls="dash-panel-route" tabindex="-1">
                   <span class="inline-block w-2 h-2 rounded-full bg-cyan-400 mr-1.5 align-middle" aria-hidden="true"></span>
                   Route
                 </button>
-                <button role="tab" data-tab="schedule" class="dash-tab" aria-selected="false">
+                <button role="tab" data-tab="schedule" class="dash-tab" aria-selected="false" id="dash-tab-schedule" aria-controls="dash-panel-schedule" tabindex="-1">
                   <span class="inline-block w-2 h-2 rounded-full bg-pink-400 mr-1.5 align-middle" aria-hidden="true"></span>
                   Scheduler
                 </button>
               </div>
               <div class="flex items-center gap-2 py-2">
-                <span class="text-xs text-gray-500 font-mono hidden sm:inline" id="dash-endpoint">/api/v1/portfolio/optimize</span>
-                <button id="dash-run-btn" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-500 transition-colors disabled:opacity-50">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
+                <span class="text-xs text-gray-400 font-mono hidden sm:inline" id="dash-endpoint">/api/v1/portfolio/optimize</span>
+                <button id="dash-run-btn" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-500 transition-colors disabled:opacity-50" aria-label="Run query">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
                   Run
                 </button>
               </div>
@@ -234,14 +260,14 @@
             <div class="grid lg:grid-cols-2 gap-4">
               <!-- Request -->
               <div>
-                <div class="text-xs font-medium text-gray-500 mb-2">Request Body</div>
+                <div class="text-xs font-medium text-gray-400 mb-2">Request Body</div>
                 <pre id="dash-request" class="dash-request-area" contenteditable="true" spellcheck="false" role="textbox" aria-label="Editable request JSON" tabindex="0"></pre>
               </div>
               <!-- Result -->
               <div>
-                <div class="text-xs font-medium text-gray-500 mb-2">Result</div>
-                <div id="dash-result" class="dash-result-area">
-                  <div class="text-gray-500 text-sm py-8 text-center">Click "Run" to execute this query with your API key.</div>
+                <div class="text-xs font-medium text-gray-400 mb-2">Result</div>
+                <div id="dash-result" class="dash-result-area" aria-live="polite" aria-label="Query result">
+                  <div class="text-gray-400 text-sm py-8 text-center">Click "Run" to execute this query with your API key.</div>
                 </div>
               </div>
             </div>
@@ -251,12 +277,12 @@
         <!-- Recent Jobs -->
         <div class="dash-card p-6">
           <div class="dash-section-title">Recent Jobs</div>
-          <div id="recent-jobs">
-            <div class="text-center py-8 text-gray-500 text-sm">Loading...</div>
+          <div id="recent-jobs" aria-live="polite">
+            <div class="text-center py-8 text-gray-400 text-sm" role="status">Loading...</div>
           </div>
         </div>
 
-      </div>
+      </section>
 
       <!-- ======================== KEYS Section (shown on nav click) ======================== -->
       <div data-section="keys" style="display: none;">
@@ -318,7 +344,7 @@
     <div class="modal-card">
       <div class="flex items-center gap-3 mb-4">
         <div class="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center">
-          <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+          <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
         </div>
         <div>
           <h3 class="font-semibold text-lg">Regenerate API Key?</h3>
@@ -339,7 +365,7 @@
   <div id="new-key-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="New API key">
     <div class="modal-card">
       <div class="flex items-center gap-2 mb-3">
-        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
         <h3 class="font-semibold text-lg text-amber-400">New API Key Generated</h3>
       </div>
       <p class="text-sm text-gray-300 mb-4">Copy your new API key now. <strong class="text-amber-300">You will not see it again.</strong></p>
@@ -354,5 +380,79 @@
   <!-- Scripts -->
   <script src="/js/auth.js"></script>
   <script src="/js/dashboard.js"></script>
+
+  <!-- Accessibility: focus trapping for modals and arrow key nav for tabs -->
+  <script>
+  (function() {
+    'use strict';
+
+    // Focus trap helper for modals
+    function trapFocus(modal) {
+      var focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (focusable.length === 0) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      modal.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          // Close modal on Escape
+          modal.style.display = 'none';
+          return;
+        }
+        if (e.key !== 'Tab') return;
+        if (e.shiftKey) {
+          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        } else {
+          if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      });
+    }
+
+    // Apply focus trapping to both modals
+    var regenModal = document.getElementById('regen-modal');
+    var newKeyModal = document.getElementById('new-key-modal');
+    if (regenModal) trapFocus(regenModal);
+    if (newKeyModal) trapFocus(newKeyModal);
+
+    // Observe modal visibility to auto-focus first button
+    var observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(m) {
+        if (m.type === 'attributes' && m.attributeName === 'style') {
+          var el = m.target;
+          if (el.style.display === 'flex' || el.style.display === 'block') {
+            var firstFocusable = el.querySelector('button, [href], input');
+            if (firstFocusable) firstFocusable.focus();
+          }
+        }
+      });
+    });
+    if (regenModal) observer.observe(regenModal, { attributes: true });
+    if (newKeyModal) observer.observe(newKeyModal, { attributes: true });
+
+    // Arrow key navigation for dashboard playground tabs
+    var dashTablist = document.getElementById('dash-playground-tabs');
+    if (dashTablist) {
+      dashTablist.addEventListener('keydown', function(e) {
+        var tabs = Array.from(dashTablist.querySelectorAll('[role="tab"]'));
+        var idx = tabs.indexOf(document.activeElement);
+        if (idx === -1) return;
+        var newIdx;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault(); newIdx = (idx + 1) % tabs.length;
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault(); newIdx = (idx - 1 + tabs.length) % tabs.length;
+        } else if (e.key === 'Home') {
+          e.preventDefault(); newIdx = 0;
+        } else if (e.key === 'End') {
+          e.preventDefault(); newIdx = tabs.length - 1;
+        } else { return; }
+        tabs.forEach(function(t) { t.setAttribute('tabindex', '-1'); t.setAttribute('aria-selected', 'false'); });
+        tabs[newIdx].setAttribute('tabindex', '0');
+        tabs[newIdx].setAttribute('aria-selected', 'true');
+        tabs[newIdx].focus();
+        tabs[newIdx].click();
+      });
+    }
+  })();
+  </script>
 </body>
 </html>

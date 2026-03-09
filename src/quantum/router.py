@@ -2,6 +2,10 @@
 
 Solves the Traveling Salesman Problem by encoding it as a QUBO
 and running QAOA to find near-optimal routes.
+
+Performance-optimized: vectorized distance matrix construction,
+vectorized 2-opt improvement with pre-computed distances (no
+recalculating full route distance on every swap attempt).
 """
 
 from __future__ import annotations
@@ -15,24 +19,26 @@ from src.quantum.qaoa import qaoa_optimize
 from src.quantum.validation import ValidationError, validate_and_preprocess_route
 
 
-def _haversine(loc1: Location, loc2: Location) -> float:
-    """Calculate distance between two points in km using Haversine formula."""
-    R = 6371.0
-    lat1, lat2 = math.radians(loc1.lat), math.radians(loc2.lat)
-    dlat = lat2 - lat1
-    dlon = math.radians(loc2.lon - loc1.lon)
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    return R * 2 * math.asin(math.sqrt(a))
-
-
 def _build_distance_matrix(locations: list[Location]) -> np.ndarray:
-    """Build NxN distance matrix between all locations."""
+    """Build NxN distance matrix using vectorized Haversine.
+
+    Computes all pairwise distances in one pass using numpy broadcasting
+    instead of nested Python loops.
+    """
     n = len(locations)
-    dist = np.zeros((n, n))
-    for i in range(n):
-        for j in range(i + 1, n):
-            d = _haversine(locations[i], locations[j])
-            dist[i, j] = dist[j, i] = d
+    lats = np.radians(np.array([loc.lat for loc in locations]))
+    lons = np.radians(np.array([loc.lon for loc in locations]))
+
+    # Broadcasting: pairwise differences
+    dlat = lats[:, None] - lats[None, :]
+    dlon = lons[:, None] - lons[None, :]
+
+    # Haversine formula (vectorized)
+    a = (
+        np.sin(dlat / 2) ** 2
+        + np.cos(lats[:, None]) * np.cos(lats[None, :]) * np.sin(dlon / 2) ** 2
+    )
+    dist = 6371.0 * 2 * np.arcsin(np.sqrt(a))
     return dist
 
 
@@ -103,11 +109,52 @@ def _decode_tsp_solution(bitstring: np.ndarray, n: int) -> list[int]:
 
 
 def _route_distance(route: list[int], dist_matrix: np.ndarray, loop: bool) -> float:
-    """Calculate total route distance."""
-    total = sum(dist_matrix[route[i], route[i + 1]] for i in range(len(route) - 1))
+    """Calculate total route distance using vectorized indexing."""
+    r = np.array(route)
+    # Sum consecutive segment distances
+    total = float(dist_matrix[r[:-1], r[1:]].sum())
     if loop:
         total += dist_matrix[route[-1], route[0]]
     return total
+
+
+def _two_opt_improve(route: list[int], dist_matrix: np.ndarray, loop: bool) -> list[int]:
+    """Optimized 2-opt improvement.
+
+    Instead of recalculating the full route distance for every candidate
+    swap, compute only the delta from the two changed edges. This reduces
+    each swap check from O(n) to O(1).
+    """
+    n = len(route)
+    improved = True
+    while improved:
+        improved = False
+        for i in range(1, n - 1):
+            for j in range(i + 1, n):
+                # Current edges: (route[i-1], route[i]) and (route[j], route[j+1 or 0])
+                # New edges after reversal: (route[i-1], route[j]) and (route[i], route[j+1 or 0])
+                a, b = route[i - 1], route[i]
+                c = route[j]
+                if j + 1 < n:
+                    d = route[j + 1]
+                elif loop:
+                    d = route[0]
+                else:
+                    # Open path: no edge after j, only compare first edge change
+                    old_cost = dist_matrix[a, b]
+                    new_cost = dist_matrix[a, c]
+                    if new_cost < old_cost:
+                        route[i:j + 1] = route[i:j + 1][::-1]
+                        improved = True
+                    continue
+
+                old_cost = dist_matrix[a, b] + dist_matrix[c, d]
+                new_cost = dist_matrix[a, c] + dist_matrix[b, d]
+
+                if new_cost < old_cost:
+                    route[i:j + 1] = route[i:j + 1][::-1]
+                    improved = True
+    return route
 
 
 async def optimize_route(request: RouteRequest) -> RouteResult:
@@ -125,8 +172,7 @@ async def optimize_route(request: RouteRequest) -> RouteResult:
         route = _decode_tsp_solution(bitstring, n)
         n_qubits = n * n
     else:
-        # Quantum-inspired nearest neighbor with 2-opt improvement
-        # Start from each city, pick best
+        # Quantum-inspired nearest neighbor with optimized 2-opt
         best_route: list[int] = []
         best_dist = float("inf")
         for start in range(n):
@@ -138,18 +184,8 @@ async def optimize_route(request: RouteRequest) -> RouteResult:
                 route.append(nearest)
                 unvisited.remove(nearest)
 
-            # 2-opt improvement
-            improved = True
-            while improved:
-                improved = False
-                for i in range(1, n - 1):
-                    for j in range(i + 1, n):
-                        new_route = route[:i] + route[i : j + 1][::-1] + route[j + 1 :]
-                        new_dist = _route_distance(new_route, dist_matrix, request.return_to_start)
-                        old_dist = _route_distance(route, dist_matrix, request.return_to_start)
-                        if new_dist < old_dist:
-                            route = new_route
-                            improved = True
+            # Optimized 2-opt: O(1) per swap check instead of O(n)
+            route = _two_opt_improve(route, dist_matrix, request.return_to_start)
 
             d = _route_distance(route, dist_matrix, request.return_to_start)
             if d < best_dist:

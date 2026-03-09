@@ -9,6 +9,10 @@ from __future__ import annotations
 import logging
 
 import stripe
+try:
+    _StripeSignatureError = stripe.error.SignatureVerificationError
+except AttributeError:
+    _StripeSignatureError = stripe.SignatureVerificationError  # type: ignore[attr-defined]
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.api.auth import Tier
@@ -68,13 +72,14 @@ async def create_checkout(
     Returns ``{"checkout_url": "https://checkout.stripe.com/..."}``
     """
     price_id = _get_price_id(body.tier)
-    stripe.api_key = _stripe_api_key()
+    api_key = _stripe_api_key()
 
     # Ensure the user has a Stripe Customer object
     if not user.stripe_customer_id:
         customer = stripe.Customer.create(
             email=user.email,
             metadata={"user_id": user.id},
+            api_key=api_key,
         )
         user_store.set_stripe_customer_id(user.id, customer.id)
         customer_id = customer.id
@@ -96,6 +101,7 @@ async def create_checkout(
         success_url=f"{base_url}/dashboard?checkout=success",
         cancel_url=f"{base_url}/pricing?checkout=cancelled",
         metadata={"user_id": user.id, "tier": body.tier},
+        api_key=api_key,
     )
 
     return {"checkout_url": session.url}
@@ -109,7 +115,6 @@ async def stripe_webhook(request: Request) -> dict:
     to upgrade the user's tier.
     """
     settings = get_settings()
-    stripe.api_key = _stripe_api_key()
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
@@ -118,7 +123,7 @@ async def stripe_webhook(request: Request) -> dict:
             event = stripe.Webhook.construct_event(
                 payload, sig_header, settings.stripe_webhook_secret
             )
-        except stripe.error.SignatureVerificationError:
+        except _StripeSignatureError:
             raise HTTPException(status_code=400, detail="Invalid webhook signature.")
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid payload.")
@@ -158,11 +163,11 @@ async def stripe_webhook(request: Request) -> dict:
                     tier=tier_name,
                 )
             else:
-                logger.warning("unknown_tier_in_webhook", tier=tier_name)
+                logger.warning("unknown_tier_in_webhook: %s", tier_name)
         else:
-            logger.warning("missing_metadata_in_webhook", session=session_data.get("id"))
+            logger.warning("missing_metadata_in_webhook: session=%s", session_data.get("id"))
     else:
-        logger.debug("unhandled_stripe_event", event_type=event_type)
+        logger.debug("unhandled_stripe_event: %s", event_type)
 
     return {"received": True}
 
@@ -173,7 +178,7 @@ async def customer_portal(user: User = Depends(_get_current_user)) -> dict:
 
     Returns ``{"portal_url": "https://billing.stripe.com/..."}``
     """
-    stripe.api_key = _stripe_api_key()
+    api_key = _stripe_api_key()
 
     if not user.stripe_customer_id:
         raise HTTPException(
@@ -190,6 +195,7 @@ async def customer_portal(user: User = Depends(_get_current_user)) -> dict:
     session = stripe.billing_portal.Session.create(
         customer=user.stripe_customer_id,
         return_url=return_url,
+        api_key=api_key,
     )
 
     return {"portal_url": session.url}

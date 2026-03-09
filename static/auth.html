@@ -93,6 +93,9 @@
 </head>
 
 <body class="antialiased min-h-screen flex flex-col">
+  <!-- Skip Navigation -->
+  <a href="#auth-main" class="skip-link">Skip to main content</a>
+
   <!-- Nav -->
   <nav class="nav-blur fixed top-0 inset-x-0 z-50" aria-label="Main navigation">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
@@ -107,22 +110,34 @@
         </svg>
         <span>Quantum MCP</span>
       </a>
-      <a href="/" class="text-sm text-gray-400 hover:text-white transition-colors">Back to Home</a>
+      <a href="/" class="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+        Back to Home
+      </a>
     </div>
   </nav>
 
+  <!-- Breadcrumb -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span class="separator" aria-hidden="true">/</span>
+      <span class="current">Sign Up / Log In</span>
+    </nav>
+  </div>
+
   <!-- Main Content -->
-  <main class="flex-1 flex items-center justify-center px-4 pt-24 pb-12">
+  <main id="auth-main" class="flex-1 flex items-center justify-center px-4 pt-4 pb-12">
     <!-- Auth Card -->
     <div id="auth-card" class="auth-card">
       <!-- Tabs -->
-      <div class="flex border-b border-gray-700/60">
-        <button id="tab-signup" class="auth-tab active" type="button" aria-label="Switch to sign up">Sign Up</button>
-        <button id="tab-login" class="auth-tab" type="button" aria-label="Switch to log in">Log In</button>
+      <div class="flex border-b border-gray-700/60" role="tablist" aria-label="Authentication method">
+        <button id="tab-signup" class="auth-tab active" type="button" role="tab" aria-selected="true" aria-controls="signup-form" tabindex="0">Sign Up</button>
+        <button id="tab-login" class="auth-tab" type="button" role="tab" aria-selected="false" aria-controls="login-form" tabindex="-1">Log In</button>
       </div>
 
       <!-- Sign Up Form -->
-      <form id="signup-form" class="p-6 sm:p-8 space-y-5">
+      <form id="signup-form" class="p-6 sm:p-8 space-y-5" role="tabpanel" aria-labelledby="tab-signup">
         <div>
           <h2 class="text-2xl font-bold mb-1">Create your account</h2>
           <p class="text-gray-400 text-sm">Start optimizing with quantum computing in minutes.</p>
@@ -130,35 +145,35 @@
 
         <div>
           <label for="signup-email" class="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
-          <input id="signup-email" type="email" class="auth-input" placeholder="you@company.com" autocomplete="email" required />
-          <div id="signup-email-error" class="field-error" aria-live="polite"></div>
+          <input id="signup-email" type="email" class="auth-input" placeholder="you@company.com" autocomplete="email" required aria-required="true" aria-describedby="signup-email-error" />
+          <div id="signup-email-error" class="field-error" aria-live="assertive" role="alert"></div>
         </div>
 
         <div>
           <label for="signup-password" class="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
-          <input id="signup-password" type="password" class="auth-input" placeholder="Min. 8 characters" autocomplete="new-password" required minlength="8" />
-          <div id="signup-password-error" class="field-error" aria-live="polite"></div>
+          <input id="signup-password" type="password" class="auth-input" placeholder="Min. 8 characters" autocomplete="new-password" required aria-required="true" aria-describedby="signup-password-error" minlength="8" />
+          <div id="signup-password-error" class="field-error" aria-live="assertive" role="alert"></div>
         </div>
 
         <div>
           <label for="signup-confirm" class="block text-sm font-medium text-gray-300 mb-1.5">Confirm Password</label>
-          <input id="signup-confirm" type="password" class="auth-input" placeholder="Repeat your password" autocomplete="new-password" required />
-          <div id="signup-confirm-error" class="field-error" aria-live="polite"></div>
+          <input id="signup-confirm" type="password" class="auth-input" placeholder="Repeat your password" autocomplete="new-password" required aria-required="true" aria-describedby="signup-confirm-error" />
+          <div id="signup-confirm-error" class="field-error" aria-live="assertive" role="alert"></div>
         </div>
 
-        <div id="signup-server-error" class="field-error text-center" aria-live="polite"></div>
+        <div id="signup-server-error" class="field-error text-center" aria-live="assertive" role="alert"></div>
 
         <button id="signup-btn" type="submit" class="w-full py-3 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
           Create Account
         </button>
 
-        <p class="text-center text-sm text-gray-500">
+        <p class="text-center text-sm text-gray-400">
           Already have an account? <button type="button" id="switch-to-login" class="text-violet-400 hover:text-violet-300 font-medium">Log in</button>
         </p>
       </form>
 
       <!-- Login Form -->
-      <form id="login-form" class="p-6 sm:p-8 space-y-5" style="display: none;">
+      <form id="login-form" class="p-6 sm:p-8 space-y-5" role="tabpanel" aria-labelledby="tab-login" style="display: none;">
         <div>
           <h2 class="text-2xl font-bold mb-1">Welcome back</h2>
           <p class="text-gray-400 text-sm">Log in to your Quantum MCP dashboard.</p>
@@ -166,23 +181,23 @@
 
         <div>
           <label for="login-email" class="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
-          <input id="login-email" type="email" class="auth-input" placeholder="you@company.com" autocomplete="email" required />
-          <div id="login-email-error" class="field-error" aria-live="polite"></div>
+          <input id="login-email" type="email" class="auth-input" placeholder="you@company.com" autocomplete="email" required aria-required="true" aria-describedby="login-email-error" />
+          <div id="login-email-error" class="field-error" aria-live="assertive" role="alert"></div>
         </div>
 
         <div>
           <label for="login-password" class="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
-          <input id="login-password" type="password" class="auth-input" placeholder="Your password" autocomplete="current-password" required />
-          <div id="login-password-error" class="field-error" aria-live="polite"></div>
+          <input id="login-password" type="password" class="auth-input" placeholder="Your password" autocomplete="current-password" required aria-required="true" aria-describedby="login-password-error" />
+          <div id="login-password-error" class="field-error" aria-live="assertive" role="alert"></div>
         </div>
 
-        <div id="login-server-error" class="field-error text-center" aria-live="polite"></div>
+        <div id="login-server-error" class="field-error text-center" aria-live="assertive" role="alert"></div>
 
         <button id="login-btn" type="submit" class="w-full py-3 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
           Log In
         </button>
 
-        <p class="text-center text-sm text-gray-500">
+        <p class="text-center text-sm text-gray-400">
           Don't have an account? <button type="button" id="switch-to-signup" class="text-violet-400 hover:text-violet-300 font-medium">Sign up</button>
         </p>
       </form>
@@ -232,7 +247,11 @@
       // Tab switching
       function showSignup() {
         tabSignup.classList.add('active');
+        tabSignup.setAttribute('aria-selected', 'true');
+        tabSignup.setAttribute('tabindex', '0');
         tabLogin.classList.remove('active');
+        tabLogin.setAttribute('aria-selected', 'false');
+        tabLogin.setAttribute('tabindex', '-1');
         signupForm.style.display = '';
         loginForm.style.display = 'none';
         clearErrors();
@@ -240,7 +259,11 @@
 
       function showLogin() {
         tabLogin.classList.add('active');
+        tabLogin.setAttribute('aria-selected', 'true');
+        tabLogin.setAttribute('tabindex', '0');
         tabSignup.classList.remove('active');
+        tabSignup.setAttribute('aria-selected', 'false');
+        tabSignup.setAttribute('tabindex', '-1');
         loginForm.style.display = '';
         signupForm.style.display = 'none';
         clearErrors();
@@ -248,6 +271,19 @@
 
       tabSignup.addEventListener('click', showSignup);
       tabLogin.addEventListener('click', showLogin);
+
+      // Arrow key navigation for auth tabs
+      var authTabs = [tabSignup, tabLogin];
+      authTabs.forEach(function(tab) {
+        tab.addEventListener('keydown', function(e) {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            var other = tab === tabSignup ? tabLogin : tabSignup;
+            other.click();
+            other.focus();
+          }
+        });
+      });
       document.getElementById('switch-to-login').addEventListener('click', showLogin);
       document.getElementById('switch-to-signup').addEventListener('click', showSignup);
 
@@ -286,7 +322,7 @@
 
         var btn = document.getElementById('signup-btn');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Creating account...';
+        btn.innerHTML = '<span class="spinner" role="status" aria-label="Creating account"></span> Creating account...';
 
         try {
           var data = await Auth.signup(email, password);
@@ -304,11 +340,14 @@
             document.getElementById('api-key-display').textContent = data.api_key;
             authCard.style.display = 'none';
             apiKeyModal.style.display = '';
+            // Focus management: move focus to the API key modal
+            document.getElementById('api-key-display').focus();
           } else {
             window.location.href = '/dashboard.html';
           }
         } catch (err) {
           document.getElementById('signup-server-error').textContent = err.message;
+          if (typeof showToast === 'function') showToast(err.message, 'error');
         } finally {
           btn.disabled = false;
           btn.textContent = 'Create Account';
@@ -336,7 +375,7 @@
 
         var btn = document.getElementById('login-btn');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Logging in...';
+        btn.innerHTML = '<span class="spinner" role="status" aria-label="Logging in"></span> Logging in...';
 
         try {
           var data = await Auth.login(email, password);
@@ -346,6 +385,7 @@
           window.location.href = '/dashboard.html';
         } catch (err) {
           document.getElementById('login-server-error').textContent = err.message;
+          if (typeof showToast === 'function') showToast(err.message, 'error');
         } finally {
           btn.disabled = false;
           btn.textContent = 'Log In';
@@ -357,11 +397,11 @@
         var key = document.getElementById('api-key-display').textContent;
         navigator.clipboard.writeText(key).then(function () {
           var btn = document.getElementById('copy-api-key');
-          btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Copied!';
+          btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Copied!';
           btn.classList.remove('text-emerald-400', 'border-emerald-500/40');
           btn.classList.add('text-emerald-300', 'border-emerald-400', 'bg-emerald-500/10');
           setTimeout(function () {
-            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg> Copy API Key';
+            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg> Copy API Key';
             btn.classList.add('text-emerald-400', 'border-emerald-500/40');
             btn.classList.remove('text-emerald-300', 'border-emerald-400', 'bg-emerald-500/10');
           }, 2000);

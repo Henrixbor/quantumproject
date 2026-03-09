@@ -1,6 +1,7 @@
 /**
  * Quantum MCP Relayer — Dashboard Logic
- * Handles profile loading, usage stats, playground, key management, and billing.
+ * Handles profile loading, skeleton states, usage stats, playground,
+ * key management, billing, onboarding, and enhanced result visualization.
  */
 
 (function () {
@@ -75,10 +76,60 @@
   };
 
   /* ====================================================================
+     Skeleton Loading States
+     ==================================================================== */
+
+  function showSkeletonLoading() {
+    // API Key skeleton
+    var maskedKey = document.getElementById('masked-key');
+    if (maskedKey) {
+      maskedKey.innerHTML = '<div class="skeleton skeleton-text" style="width:200px;height:1rem;display:inline-block"></div>';
+    }
+
+    // Usage skeleton
+    var usageText = document.getElementById('usage-text');
+    if (usageText) {
+      usageText.innerHTML = '<span class="skeleton skeleton-text-sm" style="width:80px;display:inline-block;height:0.875rem"></span>';
+    }
+
+    // Recent jobs skeleton
+    var recentJobs = document.getElementById('recent-jobs');
+    if (recentJobs) {
+      var skeletonHtml = '<div class="space-y-3">';
+      for (var i = 0; i < 3; i++) {
+        skeletonHtml += '<div class="flex items-center gap-3 py-3">';
+        skeletonHtml += '<div class="skeleton skeleton-circle" style="width:8px;height:8px"></div>';
+        skeletonHtml += '<div class="skeleton skeleton-text-sm" style="width:60px;height:0.75rem"></div>';
+        skeletonHtml += '<div class="skeleton skeleton-text-sm flex-1" style="height:0.75rem"></div>';
+        skeletonHtml += '<div class="skeleton skeleton-text-sm" style="width:50px;height:0.75rem"></div>';
+        skeletonHtml += '</div>';
+      }
+      skeletonHtml += '</div>';
+      recentJobs.innerHTML = skeletonHtml;
+    }
+
+    // Upgrade section skeleton
+    var upgradeSection = document.getElementById('upgrade-section');
+    if (upgradeSection) {
+      var upgradeSkeleton = '<div class="grid sm:grid-cols-3 gap-4">';
+      for (var j = 0; j < 3; j++) {
+        upgradeSkeleton += '<div class="skeleton-card"><div class="skeleton skeleton-text" style="width:60%"></div>';
+        upgradeSkeleton += '<div class="skeleton skeleton-bar" style="margin:1rem 0"></div>';
+        upgradeSkeleton += '<div class="skeleton skeleton-text-sm" style="width:80%"></div>';
+        upgradeSkeleton += '<div class="skeleton skeleton-text-sm" style="width:70%"></div></div>';
+      }
+      upgradeSkeleton += '</div>';
+      upgradeSection.innerHTML = upgradeSkeleton;
+    }
+  }
+
+  /* ====================================================================
      Profile Loading
      ==================================================================== */
 
   async function loadProfile() {
+    showSkeletonLoading();
+
     try {
       userProfile = await Auth.getProfile();
       if (!userProfile) return;
@@ -86,6 +137,12 @@
       renderUsage();
       renderUpgrade();
       renderRecentJobs();
+
+      // Show onboarding for new users
+      if (Auth.isNewUser()) {
+        showOnboarding();
+        Auth.markOnboarded();
+      }
     } catch (err) {
       showToast('Failed to load profile: ' + err.message, 'error');
     }
@@ -147,7 +204,7 @@
     var available = tiers.filter(function (_, i) { return i >= currentIdx; });
 
     if (available.length === 0 || tier === 'business') {
-      container.innerHTML = '<div class="text-center py-6 text-gray-500"><p>You are on the highest tier. Thank you for your support.</p></div>';
+      container.innerHTML = '<div class="text-center py-6 text-gray-400"><p>You are on the highest tier. Thank you for your support.</p></div>';
       return;
     }
 
@@ -157,23 +214,27 @@
     available.forEach(function (t) {
       var isCurrent = t.id === tier;
       var borderClass = t.popular ? 'border-violet-500/50' : 'border-gray-700';
-      html += '<div class="bg-quantum-dark border ' + borderClass + ' rounded-xl p-5 relative">';
+      html += '<div class="bg-quantum-dark border ' + borderClass + ' rounded-xl p-5 relative transition-all duration-200 hover:border-violet-500/30 hover:-translate-y-0.5">';
       if (t.popular) html += '<div class="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-semibold px-3 py-0.5 rounded-full">Popular</div>';
       html += '<h4 class="font-semibold text-lg mb-1">' + t.name + '</h4>';
-      html += '<div class="mb-3"><span class="text-2xl font-bold">' + t.price + '</span><span class="text-gray-500 text-sm">/mo</span></div>';
+      html += '<div class="mb-3"><span class="text-2xl font-bold">' + t.price + '</span><span class="text-gray-400 text-sm">/mo</span></div>';
       html += '<ul class="space-y-2 text-sm text-gray-400 mb-4">';
       t.features.forEach(function (f) { html += '<li class="flex items-start gap-2">' + checkSvg + '<span>' + f + '</span></li>'; });
       html += '</ul>';
       if (isCurrent) {
-        html += '<div class="text-center py-2 text-sm text-gray-500 font-medium">Current Plan</div>';
+        html += '<div class="text-center py-2 text-sm text-gray-400 font-medium">Current Plan</div>';
       } else {
-        html += '<button onclick="handleUpgrade(\'' + t.id + '\')" class="w-full py-2 rounded-lg ' + (t.popular ? 'bg-violet-600 text-white hover:bg-violet-500' : 'border border-gray-600 text-gray-300 hover:border-gray-400 hover:text-white') + ' font-medium transition-colors text-sm">Upgrade to ' + t.name + '</button>';
+        html += '<button onclick="handleUpgrade(\'' + t.id + '\')" class="w-full py-2 rounded-lg ' + (t.popular ? 'bg-violet-600 text-white hover:bg-violet-500' : 'border border-gray-600 text-gray-300 hover:border-gray-400 hover:text-white') + ' font-medium transition-all duration-200 text-sm active:scale-95">Upgrade to ' + t.name + '</button>';
       }
       html += '</div>';
     });
     html += '</div>';
     container.innerHTML = html;
   }
+
+  /* ====================================================================
+     Empty State for Recent Jobs
+     ==================================================================== */
 
   function renderRecentJobs() {
     var container = document.getElementById('recent-jobs');
@@ -182,7 +243,18 @@
     var jobs = userProfile.recent_jobs || userProfile.user?.recent_jobs || [];
 
     if (!jobs.length) {
-      container.innerHTML = '<div class="text-center py-8 text-gray-500"><svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg><p>No jobs yet. Run your first query below.</p></div>';
+      container.innerHTML =
+        '<div class="empty-state">' +
+          '<svg class="empty-state-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>' +
+          '</svg>' +
+          '<div class="empty-state-title">No optimization jobs yet</div>' +
+          '<div class="empty-state-desc">Run your first quantum optimization query using the playground below. Your job history will appear here.</div>' +
+          '<a href="#" class="empty-state-cta" onclick="document.getElementById(\'dash-request\').scrollIntoView({behavior:\'smooth\'});return false;">' +
+            '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>' +
+            'Run your first query' +
+          '</a>' +
+        '</div>';
       return;
     }
 
@@ -206,10 +278,10 @@
       var statusIcon = status === 'success' ? '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>' : '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>';
       var ts = job.timestamp ? new Date(job.timestamp).toLocaleString() : '';
 
-      html += '<div class="flex items-center gap-3 py-3 text-sm">';
+      html += '<div class="flex items-center gap-3 py-3 text-sm hover:bg-gray-800/30 rounded px-2 -mx-2 transition-colors">';
       html += (toolIcons[tool] || toolIcons.portfolio);
       html += '<span class="text-gray-300 font-medium min-w-[70px]">' + (toolLabels[tool] || tool) + '</span>';
-      html += '<span class="text-gray-500 flex-1 truncate">' + ts + '</span>';
+      html += '<span class="text-gray-400 flex-1 truncate">' + ts + '</span>';
       html += '<span class="' + statusClass + ' flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">' + statusIcon + '</svg>' + status + '</span>';
       html += '</div>';
     });
@@ -218,15 +290,28 @@
   }
 
   /* ====================================================================
-     API Key Management
+     API Key Management with copy tooltip feedback
      ==================================================================== */
 
   var copyKeyBtn = document.getElementById('copy-key-btn');
   if (copyKeyBtn) {
+    copyKeyBtn.style.position = 'relative';
     copyKeyBtn.addEventListener('click', function () {
       var key = document.getElementById('masked-key').textContent;
       navigator.clipboard.writeText(key).then(function () {
-        showToast('Key copied to clipboard', 'success');
+        // Show tooltip
+        var tooltip = document.createElement('div');
+        tooltip.className = 'copy-tooltip';
+        tooltip.textContent = 'Copied!';
+        copyKeyBtn.appendChild(tooltip);
+        requestAnimationFrame(function () { tooltip.classList.add('visible'); });
+
+        showToast('API key copied to clipboard', 'success');
+
+        setTimeout(function () {
+          tooltip.classList.remove('visible');
+          setTimeout(function () { tooltip.remove(); }, 200);
+        }, 1500);
       });
     });
   }
@@ -258,7 +343,7 @@
   if (regenConfirm) {
     regenConfirm.addEventListener('click', async function () {
       regenConfirm.disabled = true;
-      regenConfirm.innerHTML = '<span class="spinner" aria-hidden="true"></span> Regenerating...';
+      regenConfirm.innerHTML = '<span class="spinner" role="status" aria-label="Loading"></span> Regenerating...';
 
       try {
         var data = await Auth.regenerateKey();
@@ -266,6 +351,7 @@
 
         if (data.api_key) {
           showNewKeyModal(data.api_key);
+          showToast('API key regenerated successfully', 'success');
         }
         loadProfile();
       } catch (err) {
@@ -288,11 +374,24 @@
 
   var copyNewKey = document.getElementById('copy-new-key');
   if (copyNewKey) {
+    copyNewKey.style.position = 'relative';
     copyNewKey.addEventListener('click', function () {
       var key = document.getElementById('new-key-display').textContent;
       navigator.clipboard.writeText(key).then(function () {
+        // Tooltip feedback
+        var tooltip = document.createElement('div');
+        tooltip.className = 'copy-tooltip';
+        tooltip.textContent = 'Copied!';
+        copyNewKey.appendChild(tooltip);
+        requestAnimationFrame(function () { tooltip.classList.add('visible'); });
+
         copyNewKey.textContent = 'Copied!';
-        setTimeout(function () { copyNewKey.textContent = 'Copy New Key'; }, 2000);
+        showToast('New API key copied to clipboard', 'success');
+
+        setTimeout(function () {
+          copyNewKey.textContent = 'Copy New Key';
+          tooltip.remove();
+        }, 2000);
       });
     });
   }
@@ -321,7 +420,7 @@
   };
 
   /* ====================================================================
-     Dashboard Playground
+     Dashboard Playground with smooth tab transitions
      ==================================================================== */
 
   var playgroundTabs = document.getElementById('dash-playground-tabs');
@@ -342,7 +441,9 @@
     }
 
     if (playgroundRequest) {
+      playgroundRequest.classList.add('tab-panel-transition');
       playgroundRequest.textContent = JSON.stringify(payload.data, null, 2);
+      setTimeout(function () { playgroundRequest.classList.remove('tab-panel-transition'); }, 250);
     }
 
     if (playgroundEndpoint) {
@@ -350,7 +451,13 @@
     }
 
     if (playgroundResult) {
-      playgroundResult.innerHTML = '<div class="text-gray-500 text-sm py-8 text-center">Click "Run" to execute this query with your API key.</div>';
+      playgroundResult.innerHTML =
+        '<div class="empty-state" style="padding:2rem 1rem;min-height:auto">' +
+          '<svg class="empty-state-icon" style="width:40px;height:40px" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>' +
+          '</svg>' +
+          '<div class="empty-state-desc" style="margin-bottom:0">Click "Run" to execute this query with your API key.</div>' +
+        '</div>';
     }
   }
 
@@ -370,12 +477,26 @@
         body = JSON.parse(playgroundRequest.textContent);
       } catch (_err) {
         playgroundResult.innerHTML = '<div class="text-red-400 text-sm py-4">Invalid JSON in request body.</div>';
+        showToast('Invalid JSON in request body', 'error');
         return;
       }
 
       playgroundRunBtn.disabled = true;
-      playgroundRunBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
-      playgroundResult.innerHTML = '<div class="flex items-center justify-center py-8"><span class="spinner text-violet-400" aria-hidden="true"></span><span class="ml-3 text-gray-400 text-sm">Running quantum optimization...</span></div>';
+      playgroundRunBtn.innerHTML = '<span class="spinner" role="status" aria-label="Loading"></span>';
+
+      // Skeleton loading state
+      var loadingHtml = '<div class="space-y-3 py-4">';
+      loadingHtml += '<div class="skeleton skeleton-bar" style="width:90%"></div>';
+      loadingHtml += '<div class="grid grid-cols-3 gap-3 mt-3">';
+      for (var i = 0; i < 3; i++) {
+        loadingHtml += '<div class="skeleton" style="height:3.5rem;border-radius:0.5rem"></div>';
+      }
+      loadingHtml += '</div>';
+      loadingHtml += '<div class="skeleton skeleton-text" style="width:70%;margin-top:1rem"></div>';
+      loadingHtml += '<div class="skeleton skeleton-text" style="width:85%"></div>';
+      loadingHtml += '<div class="skeleton skeleton-text" style="width:60%"></div>';
+      loadingHtml += '</div>';
+      playgroundResult.innerHTML = loadingHtml;
 
       var apiKey = '';
       if (userProfile) {
@@ -396,12 +517,15 @@
 
         if (res.ok) {
           renderFormattedResult(activePlaygroundTab, data);
+          showToast('Quantum optimization complete', 'success');
           loadProfile();
         } else {
           playgroundResult.innerHTML = '<div class="text-red-400 text-sm py-4"><strong>Error ' + res.status + ':</strong> ' + (data.detail || JSON.stringify(data)) + '</div>';
+          showToast('API error: ' + (data.detail || 'Request failed'), 'error');
         }
       } catch (err) {
         playgroundResult.innerHTML = '<div class="text-red-400 text-sm py-4">Network error: ' + err.message + '</div>';
+        showToast('Network error: Could not reach the API', 'error');
       } finally {
         playgroundRunBtn.disabled = false;
         playgroundRunBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg> Run';
@@ -410,7 +534,7 @@
   }
 
   /* ====================================================================
-     Formatted Result Renderers
+     Enhanced Formatted Result Renderers
      ==================================================================== */
 
   function renderFormattedResult(tool, data) {
@@ -431,11 +555,12 @@
     }
   }
 
+  /* ---- Portfolio: Donut chart + bars ---- */
   function renderPortfolioResult(data) {
     var allocations = data.allocations || {};
-    var colors = ['#8b5cf6', '#06b6d4', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#6366f1', '#14b8a6'];
+    var colors = ['#6C5CE7', '#00CEC9', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#0984E3', '#14b8a6'];
 
-    var html = '<div class="space-y-4">';
+    var html = '<div class="space-y-4 tab-panel-transition">';
 
     // Metric cards
     html += '<div class="grid grid-cols-3 gap-3">';
@@ -444,32 +569,56 @@
     html += metricCard('Volatility', formatPct(data.volatility), 'text-amber-400');
     html += '</div>';
 
-    // Allocation bars
-    html += '<div class="space-y-3 mt-2">';
-    html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Allocations</h4>';
-
+    // Donut Chart + Allocation bars side by side
     var entries = Object.entries(allocations);
-    var maxAlloc = Math.max.apply(null, entries.map(function (e) { return e[1]; }));
+    var total = entries.reduce(function (sum, e) { return sum + e[1]; }, 0);
 
+    html += '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">';
+
+    // Donut chart (SVG)
+    html += '<div class="flex items-center justify-center">';
+    html += '<div class="donut-chart">';
+    html += '<svg viewBox="0 0 36 36">';
+
+    var offset = 0;
+    entries.forEach(function (entry, i) {
+      var pctVal = total > 0 ? (entry[1] / total) * 100 : 0;
+      var dashArray = pctVal + ' ' + (100 - pctVal);
+      html += '<circle cx="18" cy="18" r="15.9155" fill="none" stroke="' + colors[i % colors.length] + '" stroke-width="3" stroke-dasharray="' + dashArray + '" stroke-dashoffset="-' + offset + '" style="transition:stroke-dasharray 0.5s ease"/>';
+      offset += pctVal;
+    });
+
+    html += '</svg>';
+    html += '<div class="donut-center"><span class="value">' + entries.length + '</span><span class="label">Assets</span></div>';
+    html += '</div></div>';
+
+    // Legend + bars
+    html += '<div class="space-y-2">';
+    html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Allocations</h4>';
+
+    var maxAlloc = Math.max.apply(null, entries.map(function (e) { return e[1]; }));
     entries.forEach(function (entry, i) {
       var symbol = entry[0];
       var weight = entry[1];
       var pct = maxAlloc > 0 ? (weight / maxAlloc) * 100 : 0;
       var color = colors[i % colors.length];
 
-      html += '<div class="flex items-center gap-3">';
-      html += '<span class="text-sm font-mono text-gray-300 w-14 shrink-0">' + escapeHtml(symbol) + '</span>';
-      html += '<div class="flex-1 bg-gray-800 rounded-full h-6 overflow-hidden relative">';
-      html += '<div class="h-full rounded-full transition-all duration-500" style="width:' + pct + '%; background:' + color + ';"></div>';
-      html += '<span class="absolute inset-y-0 right-2 flex items-center text-xs font-mono text-gray-300">' + formatPct(weight) + '</span>';
+      html += '<div class="flex items-center gap-2">';
+      html += '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + color + '"></span>';
+      html += '<span class="text-xs font-mono text-gray-300 w-12 shrink-0">' + escapeHtml(symbol) + '</span>';
+      html += '<div class="flex-1 bg-gray-800 rounded-full h-5 overflow-hidden relative">';
+      html += '<div class="h-full rounded-full" style="width:' + pct + '%; background:' + color + '; transition: width 0.6s ease-out;"></div>';
+      html += '<span class="absolute inset-y-0 right-2 flex items-center text-[11px] font-mono text-gray-300">' + formatPct(weight) + '</span>';
       html += '</div>';
       html += '</div>';
     });
     html += '</div>';
 
+    html += '</div>'; // close grid
+
     // Method info
     if (data.method || data.qubit_count) {
-      html += '<div class="flex items-center gap-4 mt-2 pt-3 border-t border-gray-800 text-xs text-gray-500">';
+      html += '<div class="flex items-center gap-4 mt-2 pt-3 border-t border-gray-800 text-xs text-gray-400">';
       if (data.method) html += '<span>Method: <span class="text-gray-400 font-mono">' + escapeHtml(data.method) + '</span></span>';
       if (data.qubit_count) html += '<span>Qubits: <span class="text-gray-400">' + data.qubit_count + '</span></span>';
       html += '</div>';
@@ -479,37 +628,47 @@
     playgroundResult.innerHTML = html;
   }
 
+  /* ---- Route: Numbered journey ---- */
   function renderRouteResult(data) {
     var route = data.route || data.optimal_route || [];
     var totalDist = data.total_distance_km || data.total_distance || 0;
     var legs = data.legs || [];
 
-    var html = '<div class="space-y-4">';
+    var html = '<div class="space-y-4 tab-panel-transition">';
 
     // Total distance card
-    html += '<div class="bg-cyan-500/10 border border-cyan-500/20 rounded-lg p-4 text-center">';
-    html += '<div class="text-2xl font-bold text-cyan-400">' + formatNum(totalDist) + ' km</div>';
+    html += '<div class="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-cyan-500/20 rounded-lg p-4 text-center">';
+    html += '<div class="text-3xl font-bold" style="background:linear-gradient(135deg,#0984E3,#00CEC9);-webkit-background-clip:text;-webkit-text-fill-color:transparent">' + formatNum(totalDist) + ' km</div>';
     html += '<div class="text-xs text-gray-400 mt-1">Total Route Distance</div>';
     html += '</div>';
 
-    // Route steps
-    html += '<div class="space-y-0">';
+    // Route journey with connected steps
+    html += '<div class="route-journey">';
     route.forEach(function (stop, i) {
       var name = typeof stop === 'string' ? stop : (stop.name || stop.location || ('Stop ' + (i + 1)));
       var isLast = i === route.length - 1;
+      var isFirst = i === 0;
       var legDist = legs[i] ? legs[i].distance_km || legs[i].distance : null;
 
-      html += '<div class="flex items-start gap-3">';
+      html += '<div class="flex items-start gap-3 pb-1" style="animation: tabFadeIn 0.3s ease-out ' + (i * 0.08) + 's both">';
       // Step indicator
-      html += '<div class="flex flex-col items-center">';
-      html += '<div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ' + (i === 0 ? 'bg-cyan-500 text-white' : isLast ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-gray-800 text-gray-300 border border-gray-700') + '">' + (i + 1) + '</div>';
-      if (!isLast) html += '<div class="w-0.5 h-8 bg-gray-700 my-1"></div>';
+      html += '<div class="flex flex-col items-center" style="min-width:36px">';
+      if (isFirst) {
+        html += '<div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/20">' + (i + 1) + '</div>';
+      } else if (isLast) {
+        html += '<div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold bg-cyan-500/15 text-cyan-400 border-2 border-cyan-500/40">';
+        html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>';
+        html += '</div>';
+      } else {
+        html += '<div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold bg-gray-800 text-gray-300 border border-gray-700">' + (i + 1) + '</div>';
+      }
+      if (!isLast) html += '<div class="w-0.5 h-6 bg-gradient-to-b from-blue-500/40 to-cyan-500/20 my-1"></div>';
       html += '</div>';
       // Stop info
-      html += '<div class="pt-1.5 flex-1">';
+      html += '<div class="pt-2 flex-1">';
       html += '<span class="text-sm font-medium text-gray-200">' + escapeHtml(name) + '</span>';
       if (legDist !== null && !isLast) {
-        html += '<span class="ml-2 text-xs text-gray-500">' + formatNum(legDist) + ' km to next</span>';
+        html += '<span class="ml-2 text-xs text-gray-400 bg-gray-800/50 px-2 py-0.5 rounded-full">' + formatNum(legDist) + ' km</span>';
       }
       html += '</div>';
       html += '</div>';
@@ -518,7 +677,7 @@
 
     // Method info
     if (data.method || data.qubit_count) {
-      html += '<div class="flex items-center gap-4 mt-2 pt-3 border-t border-gray-800 text-xs text-gray-500">';
+      html += '<div class="flex items-center gap-4 mt-2 pt-3 border-t border-gray-800 text-xs text-gray-400">';
       if (data.method) html += '<span>Method: <span class="text-gray-400 font-mono">' + escapeHtml(data.method) + '</span></span>';
       if (data.qubit_count) html += '<span>Qubits: <span class="text-gray-400">' + data.qubit_count + '</span></span>';
       html += '</div>';
@@ -528,21 +687,64 @@
     playgroundResult.innerHTML = html;
   }
 
+  /* ---- Schedule: Calendar-like view ---- */
   function renderScheduleResult(data) {
     var meetings = data.meetings || data.scheduled_meetings || data.schedule || [];
     if (!Array.isArray(meetings)) meetings = [meetings];
 
-    var html = '<div class="space-y-4">';
+    var html = '<div class="space-y-4 tab-panel-transition">';
 
     // Summary
     if (data.satisfaction_score !== undefined) {
-      html += '<div class="bg-pink-500/10 border border-pink-500/20 rounded-lg p-4 text-center">';
-      html += '<div class="text-2xl font-bold text-pink-400">' + formatPct(data.satisfaction_score) + '</div>';
+      html += '<div class="bg-gradient-to-r from-pink-500/10 to-violet-500/10 border border-pink-500/20 rounded-lg p-4 text-center">';
+      html += '<div class="text-3xl font-bold" style="background:linear-gradient(135deg,#ec4899,#6C5CE7);-webkit-background-clip:text;-webkit-text-fill-color:transparent">' + formatPct(data.satisfaction_score) + '</div>';
       html += '<div class="text-xs text-gray-400 mt-1">Satisfaction Score</div>';
       html += '</div>';
     }
 
-    // Meeting slots
+    // Calendar-like day grid
+    var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    var timeSlots = ['9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
+
+    // Collect all scheduled slots
+    var scheduledSlots = {};
+    meetings.forEach(function (meeting) {
+      var slot = meeting.slot || meeting.time_slot || meeting.time || '';
+      scheduledSlots[slot] = meeting.attendees || meeting.participants || [];
+    });
+
+    html += '<div class="overflow-x-auto">';
+    html += '<div class="schedule-grid" style="grid-template-columns: 50px repeat(5, 1fr); min-width: 340px;">';
+
+    // Header row
+    html += '<div class="schedule-day"></div>';
+    days.forEach(function (day) {
+      html += '<div class="schedule-day">' + day + '</div>';
+    });
+
+    // Time rows
+    timeSlots.forEach(function (time) {
+      html += '<div class="text-[10px] text-gray-400 py-1 text-right pr-2" style="display:flex;align-items:center;justify-content:flex-end">' + time + '</div>';
+      days.forEach(function (day) {
+        var slotKey = day + ' ' + time + '-' + nextTime(time);
+        var isScheduled = !!scheduledSlots[slotKey];
+        var isAvailable = isSlotAvailable(data, day, time);
+
+        var cls = 'schedule-slot';
+        if (isScheduled) cls += ' highlight';
+        else if (isAvailable) cls += ' active';
+
+        html += '<div class="' + cls + '">';
+        if (isScheduled) {
+          html += '<svg class="w-3 h-3 mx-auto" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>';
+        }
+        html += '</div>';
+      });
+    });
+
+    html += '</div></div>';
+
+    // Meeting slots detail
     meetings.forEach(function (meeting, idx) {
       var slot = meeting.slot || meeting.time_slot || meeting.time || 'TBD';
       var attendees = meeting.attendees || meeting.participants || [];
@@ -551,7 +753,7 @@
       html += '<div class="flex items-center gap-2 mb-3">';
       html += '<svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
       html += '<span class="text-sm font-semibold text-gray-200">' + escapeHtml(String(slot)) + '</span>';
-      if (meetings.length > 1) html += '<span class="text-xs text-gray-500 ml-auto">Meeting ' + (idx + 1) + '</span>';
+      if (meetings.length > 1) html += '<span class="text-xs text-gray-400 ml-auto">Meeting ' + (idx + 1) + '</span>';
       html += '</div>';
 
       // Attendee avatars
@@ -563,7 +765,7 @@
           var avatarColors = ['bg-violet-500', 'bg-cyan-500', 'bg-pink-500', 'bg-amber-500', 'bg-emerald-500'];
           var colorIdx = name.charCodeAt(0) % avatarColors.length;
 
-          html += '<div class="flex items-center gap-2 bg-gray-900/50 rounded-full pl-1 pr-3 py-1">';
+          html += '<div class="flex items-center gap-2 bg-gray-900/50 rounded-full pl-1 pr-3 py-1 transition-transform hover:scale-105">';
           html += '<div class="w-6 h-6 rounded-full ' + avatarColors[colorIdx] + ' flex items-center justify-center text-[10px] font-bold text-white">' + initials + '</div>';
           html += '<span class="text-xs text-gray-300">' + escapeHtml(name) + '</span>';
           html += '</div>';
@@ -575,7 +777,7 @@
 
     // Method info
     if (data.method || data.qubit_count) {
-      html += '<div class="flex items-center gap-4 mt-2 pt-3 border-t border-gray-800 text-xs text-gray-500">';
+      html += '<div class="flex items-center gap-4 mt-2 pt-3 border-t border-gray-800 text-xs text-gray-400">';
       if (data.method) html += '<span>Method: <span class="text-gray-400 font-mono">' + escapeHtml(data.method) + '</span></span>';
       if (data.qubit_count) html += '<span>Qubits: <span class="text-gray-400">' + data.qubit_count + '</span></span>';
       html += '</div>';
@@ -585,15 +787,29 @@
     playgroundResult.innerHTML = html;
   }
 
+  function nextTime(time) {
+    var hour = parseInt(time.split(':')[0]) + 1;
+    return (hour < 10 ? '0' : '') + hour + ':00';
+  }
+
+  function isSlotAvailable(data, day, time) {
+    var participants = [];
+    if (data && data.participants) participants = data.participants;
+    var slotKey = day + ' ' + time;
+    return participants.some(function (p) {
+      return (p.available_slots || []).some(function (s) { return s.indexOf(slotKey) === 0; });
+    });
+  }
+
   /* ====================================================================
      Helpers
      ==================================================================== */
 
   function metricCard(label, value, colorClass, highlight) {
     var border = highlight ? 'border-emerald-500/20' : 'border-gray-800';
-    return '<div class="bg-gray-900/50 border ' + border + ' rounded-lg p-3 text-center">' +
+    return '<div class="bg-gray-900/50 border ' + border + ' rounded-lg p-3 text-center transition-transform hover:scale-105">' +
       '<div class="text-lg font-bold ' + colorClass + '">' + value + '</div>' +
-      '<div class="text-[11px] text-gray-500 mt-0.5">' + label + '</div></div>';
+      '<div class="text-[11px] text-gray-400 mt-0.5">' + label + '</div></div>';
   }
 
   function formatNum(n) {
@@ -613,32 +829,69 @@
   }
 
   /* ====================================================================
-     Toast Notifications
+     Onboarding Quick Start Overlay
      ==================================================================== */
 
-  function showToast(message, type) {
-    var container = document.getElementById('toast-container');
-    if (!container) return;
+  function showOnboarding() {
+    var maskedKey = userProfile ? (userProfile.masked_api_key || userProfile.user?.masked_api_key || 'qmr_****...****') : 'qmr_****...****';
 
-    var toast = document.createElement('div');
-    var bgClass = type === 'error' ? 'bg-red-500/15 border-red-500/30 text-red-300' :
-                  type === 'success' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' :
-                  'bg-blue-500/15 border-blue-500/30 text-blue-300';
+    var overlay = document.createElement('div');
+    overlay.className = 'onboarding-overlay';
+    overlay.id = 'onboarding-overlay';
+    overlay.innerHTML =
+      '<div class="onboarding-card">' +
+        '<button class="onboarding-close" id="onboarding-close" aria-label="Close quick start guide">' +
+          '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>' +
+        '</button>' +
+        '<h2 class="text-xl font-bold mb-1">Welcome to Quantum MCP</h2>' +
+        '<p class="text-gray-400 text-sm mb-4">Here is everything you need to get started with quantum optimization.</p>' +
 
-    toast.className = 'flex items-center gap-2 px-4 py-3 rounded-lg border text-sm ' + bgClass + ' transform translate-x-full transition-transform duration-300';
-    toast.textContent = message;
-    container.appendChild(toast);
+        '<div class="onboarding-step">' +
+          '<div class="onboarding-step-number">1</div>' +
+          '<div class="onboarding-step-content">' +
+            '<h4>Your API Key</h4>' +
+            '<p>Your key is <code class="text-xs font-mono text-emerald-400 bg-gray-800/50 px-1.5 py-0.5 rounded">' + escapeHtml(maskedKey) + '</code>. Use it in the <code class="text-xs text-violet-400">X-API-Key</code> header or your MCP config.</p>' +
+          '</div>' +
+        '</div>' +
 
-    requestAnimationFrame(function () {
-      toast.classList.remove('translate-x-full');
-      toast.classList.add('translate-x-0');
+        '<div class="onboarding-step">' +
+          '<div class="onboarding-step-number">2</div>' +
+          '<div class="onboarding-step-content">' +
+            '<h4>Try the Playground</h4>' +
+            '<p>Scroll down to the playground section, pick a tool, edit the JSON, and click Run to see quantum optimization in action.</p>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="onboarding-step">' +
+          '<div class="onboarding-step-number">3</div>' +
+          '<div class="onboarding-step-content">' +
+            '<h4>Read the Docs</h4>' +
+            '<p>Check out the <a href="/" class="text-violet-400 hover:text-violet-300 underline">documentation page</a> for MCP config, cURL examples, and SDK code samples.</p>' +
+          '</div>' +
+        '</div>' +
+
+        '<button id="onboarding-dismiss" class="w-full mt-4 py-3 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-500 transition-colors active:scale-95" style="transition: transform 0.15s ease, background 0.2s ease">' +
+          'Got it, let me explore!' +
+        '</button>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    // Close handlers
+    document.getElementById('onboarding-close').addEventListener('click', closeOnboarding);
+    document.getElementById('onboarding-dismiss').addEventListener('click', closeOnboarding);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeOnboarding();
     });
+  }
 
-    setTimeout(function () {
-      toast.classList.remove('translate-x-0');
-      toast.classList.add('translate-x-full');
-      setTimeout(function () { toast.remove(); }, 300);
-    }, 4000);
+  function closeOnboarding() {
+    var overlay = document.getElementById('onboarding-overlay');
+    if (overlay) {
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'opacity 0.3s ease';
+      setTimeout(function () { overlay.remove(); }, 300);
+    }
   }
 
   /* ====================================================================
@@ -649,12 +902,36 @@
   if (logoutBtn) {
     logoutBtn.addEventListener('click', function (e) {
       e.preventDefault();
-      Auth.logout();
+      showToast('Logging out...', 'info');
+      setTimeout(function () { Auth.logout(); }, 500);
     });
   }
 
   /* ====================================================================
-     Nav link active state
+     Mobile dashboard nav toggle
+     ==================================================================== */
+
+  var dashNavToggle = document.getElementById('dash-nav-toggle');
+  var dashMobileNav = document.getElementById('dash-mobile-nav');
+
+  if (dashNavToggle && dashMobileNav) {
+    dashNavToggle.addEventListener('click', function () {
+      var expanded = dashNavToggle.getAttribute('aria-expanded') === 'true';
+      dashNavToggle.setAttribute('aria-expanded', String(!expanded));
+      dashMobileNav.classList.toggle('open');
+    });
+
+    // Close mobile nav when a link is clicked
+    dashMobileNav.querySelectorAll('a[data-nav]').forEach(function (link) {
+      link.addEventListener('click', function () {
+        dashMobileNav.classList.remove('open');
+        dashNavToggle.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+
+  /* ====================================================================
+     Nav link active state with highlight + breadcrumb update
      ==================================================================== */
 
   var navLinks = document.querySelectorAll('[data-nav]');
@@ -668,11 +945,19 @@
         s.style.display = s.dataset.section === target ? '' : 'none';
       });
       navLinks.forEach(function (l) {
+        if (!l.dataset.nav) return;
         l.classList.toggle('text-white', l.dataset.nav === target);
         l.classList.toggle('border-b-2', l.dataset.nav === target);
         l.classList.toggle('border-violet-500', l.dataset.nav === target);
         l.classList.toggle('text-gray-400', l.dataset.nav !== target);
       });
+
+      // Update breadcrumb
+      var breadcrumbLabels = { overview: 'Dashboard', keys: 'API Keys', usage: 'Usage' };
+      var breadcrumbEl = document.getElementById('breadcrumb-current');
+      if (breadcrumbEl) {
+        breadcrumbEl.textContent = breadcrumbLabels[target] || 'Dashboard';
+      }
     });
   });
 

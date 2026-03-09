@@ -2,6 +2,9 @@
 
 Formulates the Markowitz mean-variance portfolio problem as a QUBO
 and solves it using QAOA for near-optimal asset allocation.
+
+Performance-optimized: eliminated redundant array copies, vectorized
+QUBO construction, and reduced unnecessary allocations.
 """
 
 from __future__ import annotations
@@ -15,23 +18,39 @@ from src.quantum.validation import ValidationError, validate_and_preprocess_port
 
 
 def _build_covariance_matrix(
-    symbols: list[str], volatilities: list[float]
+    symbols: list[str], volatilities: np.ndarray
 ) -> np.ndarray:
-    """Build a synthetic covariance matrix from volatilities with correlations."""
-    n = len(symbols)
-    # Base correlation of 0.3 for same-class assets, 0.1 cross-class
-    crypto = {"BTC", "ETH", "SOL", "BNB", "ADA", "DOT", "AVAX", "MATIC", "LINK", "UNI"}
-    corr = np.eye(n)
-    for i in range(n):
-        for j in range(i + 1, n):
-            si, sj = symbols[i], symbols[j]
-            if (si in crypto and sj in crypto) or (si not in crypto and sj not in crypto):
-                corr[i, j] = corr[j, i] = 0.3 + np.random.uniform(-0.1, 0.1)
-            else:
-                corr[i, j] = corr[j, i] = 0.1 + np.random.uniform(-0.05, 0.05)
+    """Build a synthetic covariance matrix from volatilities with correlations.
 
-    vols = np.array(volatilities)
-    cov = np.outer(vols, vols) * corr
+    Accepts volatilities as ndarray directly to avoid list conversion overhead.
+    Uses vectorized correlation matrix construction.
+    """
+    n = len(symbols)
+    crypto = {"BTC", "ETH", "SOL", "BNB", "ADA", "DOT", "AVAX", "MATIC", "LINK", "UNI"}
+
+    # Vectorize correlation assignment: build boolean masks
+    is_crypto = np.array([s in crypto for s in symbols])
+    # same_class[i,j] = True if both crypto or both non-crypto
+    same_class = np.equal.outer(is_crypto, is_crypto)
+
+    # Seed from sorted symbols for deterministic results with same inputs
+    seed = hash(tuple(sorted(symbols))) & 0xFFFFFFFF
+    rng = np.random.default_rng(seed)
+    corr = np.eye(n)
+    # Generate random perturbations for upper triangle only
+    upper_mask = np.triu(np.ones((n, n), dtype=bool), k=1)
+    n_upper = upper_mask.sum()
+
+    base_vals = np.where(
+        same_class[upper_mask],
+        0.3 + rng.uniform(-0.1, 0.1, size=n_upper),
+        0.1 + rng.uniform(-0.05, 0.05, size=n_upper),
+    )
+    corr[upper_mask] = base_vals
+    corr = corr + corr.T - np.eye(n)
+
+    # cov = diag(vol) @ corr @ diag(vol) = outer(vol, vol) * corr
+    cov = np.outer(volatilities, volatilities) * corr
     return cov
 
 
@@ -43,8 +62,8 @@ def _portfolio_to_qubo(
 ) -> np.ndarray:
     """Convert portfolio optimization to QUBO matrix.
 
-    Discretizes allocation into 2^num_bits levels per asset and builds
-    the QUBO cost matrix for QAOA.
+    Vectorized construction using numpy broadcasting instead of
+    nested Python loops.
     """
     n_assets = len(returns)
     n_qubits = n_assets * num_bits_per_asset
@@ -52,25 +71,32 @@ def _portfolio_to_qubo(
 
     Q = np.zeros((n_qubits, n_qubits))
 
-    for i in range(n_assets):
-        for bi in range(num_bits_per_asset):
-            qi = i * num_bits_per_asset + bi
-            weight_i = (2**bi) / levels
-            # Return term (maximize, so negative in QUBO)
-            Q[qi, qi] -= (1.0 - risk_tolerance) * returns[i] * weight_i
-            # Risk term (minimize variance)
-            for j in range(n_assets):
-                for bj in range(num_bits_per_asset):
-                    qj = j * num_bits_per_asset + bj
-                    weight_j = (2**bj) / levels
-                    Q[qi, qj] += risk_tolerance * cov_matrix[i, j] * weight_i * weight_j
+    # Pre-compute weight vector for all qubit positions
+    bit_indices = np.arange(num_bits_per_asset)
+    weights_per_bit = (2.0**bit_indices) / levels  # shape (num_bits_per_asset,)
 
-    # Budget constraint penalty: sum of allocations should be ~1
-    penalty = 5.0
+    # Build qubit-to-asset mapping and weights
+    qubit_asset = np.repeat(np.arange(n_assets), num_bits_per_asset)
+    qubit_weight = np.tile(weights_per_bit, n_assets)
+
+    # Return term on diagonal: Q[qi, qi] -= (1 - risk_tolerance) * returns[asset_i] * weight_i
+    return_coeff = (1.0 - risk_tolerance)
     for qi in range(n_qubits):
-        Q[qi, qi] += penalty
-        for qj in range(qi + 1, n_qubits):
-            Q[qi, qj] += 2 * penalty / n_qubits
+        Q[qi, qi] -= return_coeff * returns[qubit_asset[qi]] * qubit_weight[qi]
+
+    # Risk term: Q[qi, qj] += risk_tolerance * cov[asset_i, asset_j] * weight_i * weight_j
+    # Vectorized using outer products
+    weight_outer = np.outer(qubit_weight, qubit_weight)
+    cov_mapped = cov_matrix[np.ix_(qubit_asset, qubit_asset)]
+    Q += risk_tolerance * cov_mapped * weight_outer
+
+    # Budget constraint penalty
+    penalty = 5.0
+    diag_idx = np.arange(n_qubits)
+    Q[diag_idx, diag_idx] += penalty
+    # Upper triangle off-diagonal penalty
+    upper = np.triu(np.ones((n_qubits, n_qubits), dtype=bool), k=1)
+    Q[upper] += 2 * penalty / n_qubits
 
     return Q
 
@@ -82,7 +108,7 @@ async def optimize_portfolio(request: PortfolioRequest) -> PortfolioResult:
     symbols = [a.symbol.upper() for a in request.assets]
     n = len(symbols)
 
-    # Resolve returns and volatilities
+    # Resolve returns and volatilities -- single array construction, no copies
     returns = np.array([
         a.expected_return if a.expected_return is not None
         else DEFAULT_RETURNS.get(a.symbol.upper(), 0.10)
@@ -94,10 +120,10 @@ async def optimize_portfolio(request: PortfolioRequest) -> PortfolioResult:
         for a in request.assets
     ])
 
-    cov_matrix = _build_covariance_matrix(symbols, volatilities.tolist())
+    # Pass ndarray directly -- no .tolist() conversion
+    cov_matrix = _build_covariance_matrix(symbols, volatilities)
 
-    # Build QUBO and run QAOA — scale complexity with problem size
-    # Keep total qubits <= 14 to stay under 1 second
+    # Scale complexity with problem size
     if n <= 4:
         bits_per_asset = 3
         num_layers = 3
@@ -113,23 +139,21 @@ async def optimize_portfolio(request: PortfolioRequest) -> PortfolioResult:
 
     bitstring, _ = qaoa_optimize(qubo, num_layers=num_layers, num_shots=512)
 
-    # Decode bitstring to allocations
+    # Decode bitstring to allocations -- vectorized
     levels = 2**bits_per_asset
-    raw_alloc = []
-    for i in range(n):
-        val = sum(
-            bitstring[i * bits_per_asset + b] * (2**b) for b in range(bits_per_asset)
-        )
-        raw_alloc.append(val / levels)
+    bit_weights = 2.0 ** np.arange(bits_per_asset)
+    raw_alloc = np.array([
+        bitstring[i * bits_per_asset:(i + 1) * bits_per_asset] @ bit_weights
+        for i in range(n)
+    ]) / levels
 
-    # Normalize and apply constraints
-    raw_alloc = np.array(raw_alloc)
-    raw_alloc = np.clip(raw_alloc, request.min_allocation, request.max_allocation)
+    # Normalize and apply constraints -- in-place clip to avoid copy
+    np.clip(raw_alloc, request.min_allocation, request.max_allocation, out=raw_alloc)
     total = raw_alloc.sum()
     if total > 0:
         allocations = raw_alloc / total
     else:
-        allocations = np.ones(n) / n
+        allocations = np.full(n, 1.0 / n)
 
     # Compute portfolio metrics
     port_return = float(allocations @ returns)

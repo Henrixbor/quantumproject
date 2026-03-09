@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import os
 import secrets
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Optional
@@ -71,6 +72,7 @@ class UserStore:
         self._by_id: dict[str, User] = {}
         self._by_email: dict[str, str] = {}        # email  -> user.id
         self._by_api_key: dict[str, str] = {}       # key_hash -> user.id
+        self._lock = threading.Lock()
 
     # -- mutations -----------------------------------------------------------
 
@@ -82,26 +84,27 @@ class UserStore:
         Raises ``ValueError`` if the email is already registered.
         """
         email = email.strip().lower()
-        if email in self._by_email:
-            raise ValueError("Email already registered")
+        with self._lock:
+            if email in self._by_email:
+                raise ValueError("Email already registered")
 
-        user_id = secrets.token_urlsafe(16)
-        password_hash = _hash_password(password)
+            user_id = secrets.token_urlsafe(16)
+            password_hash = _hash_password(password)
 
-        # Generate API key via the existing key_store singleton
-        raw_api_key = key_store.generate_key(owner=user_id, tier=Tier.free)
-        api_key_hash = key_store._hash_key(raw_api_key)
+            # Generate API key via the existing key_store singleton
+            raw_api_key = key_store.generate_key(owner=user_id, tier=Tier.free)
+            api_key_hash = key_store._hash_key(raw_api_key)
 
-        user = User(
-            id=user_id,
-            email=email,
-            password_hash=password_hash,
-            api_key_hash=api_key_hash,
-        )
+            user = User(
+                id=user_id,
+                email=email,
+                password_hash=password_hash,
+                api_key_hash=api_key_hash,
+            )
 
-        self._by_id[user.id] = user
-        self._by_email[user.email] = user.id
-        self._by_api_key[api_key_hash] = user.id
+            self._by_id[user.id] = user
+            self._by_email[user.email] = user.id
+            self._by_api_key[api_key_hash] = user.id
 
         return user, raw_api_key
 
@@ -110,37 +113,39 @@ class UserStore:
 
         Returns the new raw API key (shown once).
         """
-        user = self._by_id.get(user_id)
-        if user is None:
-            raise ValueError("User not found")
+        with self._lock:
+            user = self._by_id.get(user_id)
+            if user is None:
+                raise ValueError("User not found")
 
-        # Remove old key from indexes
-        self._by_api_key.pop(user.api_key_hash, None)
-        # Revoke in the key_store (we only have the hash, so remove by hash)
-        key_store._records.pop(user.api_key_hash, None)
+            # Remove old key from indexes
+            self._by_api_key.pop(user.api_key_hash, None)
+            # Revoke in the key_store (we only have the hash, so remove by hash)
+            key_store._records.pop(user.api_key_hash, None)
 
-        # Generate new key
-        raw_api_key = key_store.generate_key(owner=user_id, tier=user.tier)
-        api_key_hash = key_store._hash_key(raw_api_key)
+            # Generate new key
+            raw_api_key = key_store.generate_key(owner=user_id, tier=user.tier)
+            api_key_hash = key_store._hash_key(raw_api_key)
 
-        user.api_key_hash = api_key_hash
-        self._by_api_key[api_key_hash] = user.id
+            user.api_key_hash = api_key_hash
+            self._by_api_key[api_key_hash] = user.id
 
         return raw_api_key
 
     def update_tier(self, user_id: str, tier: Tier) -> None:
         """Upgrade / change a user's subscription tier."""
-        user = self._by_id.get(user_id)
-        if user is None:
-            raise ValueError("User not found")
-        user.tier = tier
-        # Also update the API key record in key_store so rate limits match
-        record = key_store._records.get(user.api_key_hash)
-        if record is not None:
-            from src.api.auth import APIKeyRecord
-            key_store._records[user.api_key_hash] = APIKeyRecord(
-                key_hash=record.key_hash, tier=tier, owner=record.owner
-            )
+        with self._lock:
+            user = self._by_id.get(user_id)
+            if user is None:
+                raise ValueError("User not found")
+            user.tier = tier
+            # Also update the API key record in key_store so rate limits match
+            record = key_store._records.get(user.api_key_hash)
+            if record is not None:
+                from src.api.auth import APIKeyRecord
+                key_store._records[user.api_key_hash] = APIKeyRecord(
+                    key_hash=record.key_hash, tier=tier, owner=record.owner
+                )
 
     def set_stripe_customer_id(self, user_id: str, customer_id: str) -> None:
         user = self._by_id.get(user_id)

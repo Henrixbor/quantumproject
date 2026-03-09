@@ -137,5 +137,10 @@ class UserProfile(BaseModel):
     created_at: float
 
 
+class RegenerateKeyResponse(BaseModel):
+    api_key: str = Field(description="New API key — shown only once, store it securely")
+    message: str = "New API key generated. The old key is now invalid. Save this — it will not be shown again."
+
+
 class CheckoutRequest(BaseModel):
     tier: str = Field(description="Target tier: starter, pro, or business")
